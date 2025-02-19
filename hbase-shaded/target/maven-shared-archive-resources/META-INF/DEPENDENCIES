@@ -1,0 +1,27 @@
+// ------------------------------------------------------------------
+// Transitive dependencies of this project determined from the
+// maven pom organized by organization.
+// ------------------------------------------------------------------
+
+Apache HBase - Shaded
+
+
+From: 'QOS.ch' (http://www.qos.ch)
+  - SLF4J API Module (http://www.slf4j.org) org.slf4j:slf4j-api:jar:1.7.33
+    License: MIT License  (http://www.opensource.org/licenses/mit-license.php)
+
+From: 'The Apache Software Foundation' (https://www.apache.org/)
+  - Apache HBase - Resource Bundle (https://hbase.apache.org/hbase-build-configuration/hbase-resource-bundle) org.apache.hbase:hbase-resource-bundle:jar:2.5.11-SNAPSHOT
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Log4j API (https://logging.apache.org/log4j/2.x/log4j-api/) org.apache.logging.log4j:log4j-api:jar:2.17.2
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Log4j Core (https://logging.apache.org/log4j/2.x/log4j-core/) org.apache.logging.log4j:log4j-core:jar:2.17.2
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Log4j SLF4J Binding (https://logging.apache.org/log4j/2.x/log4j-slf4j-impl/) org.apache.logging.log4j:log4j-slf4j-impl:jar:2.17.2
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Yetus - Audience Annotations (https://yetus.apache.org/audience-annotations) org.apache.yetus:audience-annotations:jar:0.13.0
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+
+
+

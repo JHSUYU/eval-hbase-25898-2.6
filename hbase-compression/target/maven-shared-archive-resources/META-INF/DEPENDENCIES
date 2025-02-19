@@ -1,0 +1,17 @@
+// ------------------------------------------------------------------
+// Transitive dependencies of this project determined from the
+// maven pom organized by organization.
+// ------------------------------------------------------------------
+
+Apache HBase - Compression
+
+
+From: 'The Apache Software Foundation' (https://www.apache.org/)
+  - Apache HBase - Resource Bundle (https://hbase.apache.org/hbase-build-configuration/hbase-resource-bundle) org.apache.hbase:hbase-resource-bundle:jar:2.5.11-SNAPSHOT
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Yetus - Audience Annotations (https://yetus.apache.org/audience-annotations) org.apache.yetus:audience-annotations:jar:0.13.0
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+
+
+

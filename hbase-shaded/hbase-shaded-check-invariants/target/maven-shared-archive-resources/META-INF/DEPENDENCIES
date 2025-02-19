@@ -1,0 +1,51 @@
+// ------------------------------------------------------------------
+// Transitive dependencies of this project determined from the
+// maven pom organized by organization.
+// ------------------------------------------------------------------
+
+Apache HBase Shaded Packaging Invariants
+
+
+From: 'an unknown organization'
+  - OpenTelemetry Java (https://github.com/open-telemetry/opentelemetry-java) io.opentelemetry:opentelemetry-api:jar:1.15.0
+    License: The Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+  - OpenTelemetry Java (https://github.com/open-telemetry/opentelemetry-java) io.opentelemetry:opentelemetry-context:jar:1.15.0
+    License: The Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+  - OpenTelemetry Java (https://github.com/open-telemetry/opentelemetry-java) io.opentelemetry:opentelemetry-semconv:jar:1.15.0-alpha
+    License: The Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+
+From: 'Apache Software Foundation' (https://www.apache.org)
+  - Apache Hadoop Annotations  org.apache.hadoop:hadoop-annotations:jar:2.10.2
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Hadoop Distributed Copy  org.apache.hadoop:hadoop-distcp:jar:2.10.2
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+From: 'Eclipse Foundation' (https://www.eclipse.org)
+  - Jakarta Annotations API (https://projects.eclipse.org/projects/ee4j.ca) jakarta.annotation:jakarta.annotation-api:jar:1.3.5
+    License: EPL 2.0  (http://www.eclipse.org/legal/epl-2.0)    License: GPL2 w/ CPE  (https://www.gnu.org/software/classpath/license.html)
+  - Jakarta Bean Validation API (https://beanvalidation.org) jakarta.validation:jakarta.validation-api:jar:2.0.2
+    License: Apache License 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+
+From: 'Oracle Corporation' (http://www.oracle.com)
+  - javax.inject:1 as OSGi bundle (https://github.com/eclipse-ee4j/glassfish-hk2/external/jakarta.inject) org.glassfish.hk2.external:jakarta.inject:jar:2.6.1
+    License: EPL 2.0  (http://www.eclipse.org/legal/epl-2.0)    License: GPL2 w/ CPE  (https://www.gnu.org/software/classpath/license.html)
+
+From: 'QOS.ch' (http://www.qos.ch)
+  - SLF4J API Module (http://www.slf4j.org) org.slf4j:slf4j-api:jar:1.7.33
+    License: MIT License  (http://www.opensource.org/licenses/mit-license.php)
+
+From: 'Shigeru Chiba, www.javassist.org'
+  - Javassist (http://www.javassist.org/) org.javassist:javassist:bundle:3.29.2-GA
+    License: MPL 1.1  (http://www.mozilla.org/MPL/MPL-1.1.html)    License: LGPL 2.1  (http://www.gnu.org/licenses/lgpl-2.1.html)    License: Apache License 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+
+From: 'The Apache Software Foundation' (https://www.apache.org/)
+  - Apache HBase - Shaded - Client (https://hbase.apache.org/hbase-build-configuration/hbase-shaded/hbase-shaded-client-byo-hadoop) org.apache.hbase:hbase-shaded-client-byo-hadoop:jar:2.5.11-SNAPSHOT
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache HBase - Shaded - MapReduce (https://hbase.apache.org/hbase-build-configuration/hbase-shaded/hbase-shaded-mapreduce) org.apache.hbase:hbase-shaded-mapreduce:jar:2.5.11-SNAPSHOT
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Yetus - Audience Annotations (https://yetus.apache.org/audience-annotations) org.apache.yetus:audience-annotations:jar:0.13.0
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+
+
+

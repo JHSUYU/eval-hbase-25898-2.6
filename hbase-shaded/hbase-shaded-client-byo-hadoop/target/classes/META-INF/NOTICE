@@ -1,0 +1,355 @@
+
+Apache HBase - Shaded - Client
+Copyright 2007-2025 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+====
+Apache HBase - Shaded - Client contained works
+
+This product contains additional works that are distributed under licenses
+other than ASL v2. See LICENSE for full details
+
+
+
+--
+This product includes error_prone_annotations
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from com.google.errorprone:error_prone_annotations:jar:2.21.1
+
+For source see 'https://errorprone.info/error_prone_annotations/error_prone_annotations'.
+--
+This product includes Apache Commons Codec
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from commons-codec:commons-codec:jar:1.15
+
+For source see 'https://commons.apache.org/proper/commons-codec/'.
+--
+This product includes Apache Commons IO
+
+Licensed under Apache-2.0, see LICENSE for details.
+
+incorporated from commons-io:commons-io:jar:2.14.0
+
+For source see 'https://commons.apache.org/proper/commons-io/'.
+--
+This product includes metrics-core
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.dropwizard.metrics:metrics-core:jar:3.2.6
+
+For source see 'http://metrics.dropwizard.io/metrics-core/metrics-core'.
+--
+This product includes Netty/Buffer
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-buffer:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-buffer/'.
+--
+This product includes Netty/Codec
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-codec:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-codec/'.
+--
+This product includes Netty/Common
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-common:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-common/'.
+--
+This product includes Netty/Handler
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-handler:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-handler/'.
+--
+This product includes Netty/Resolver
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-resolver:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-resolver/'.
+--
+This product includes Netty/Transport
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-transport:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-transport/'.
+--
+This product includes Netty/Transport/Classes/Epoll
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-transport-classes-epoll:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-transport-classes-epoll/'.
+--
+This product includes Netty/Transport/Native/Epoll
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-transport-native-epoll:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-transport-native-epoll/'.
+--
+This product includes Netty/Transport/Native/Unix/Common
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.netty:netty-transport-native-unix-common:jar:4.1.100.Final
+
+For source see 'https://netty.io/netty-transport-native-unix-common/'.
+--
+This product includes OpenTelemetry Java
+
+Licensed under The Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.opentelemetry:opentelemetry-api:jar:1.15.0
+
+For source see 'https://github.com/open-telemetry/opentelemetry-java'.
+--
+This product includes OpenTelemetry Java
+
+Licensed under The Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.opentelemetry:opentelemetry-context:jar:1.15.0
+
+For source see 'https://github.com/open-telemetry/opentelemetry-java'.
+--
+This product includes OpenTelemetry Java
+
+Licensed under The Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from io.opentelemetry:opentelemetry-semconv:jar:1.15.0-alpha
+
+For source see 'https://github.com/open-telemetry/opentelemetry-java'.
+--
+This product includes Apache Commons Crypto
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.commons:commons-crypto:jar:1.1.0
+
+For source see 'https://commons.apache.org/proper/commons-crypto/'.
+--
+This product includes software from the Spring Framework,
+under the Apache License 2.0 (see: StringUtils.containsWhitespace())
+
+--
+This product includes Apache Commons Lang
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.commons:commons-lang3:jar:3.9
+
+For source see 'http://commons.apache.org/proper/commons-lang/'.
+--
+This product includes Apache HBase - Client
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-client:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-client'.
+--
+This product includes Apache HBase - Common
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-common:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-common'.
+--
+This product includes Apache HBase - Hadoop Compatibility
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-hadoop-compat:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-hadoop-compat'.
+--
+This product includes Apache HBase - Hadoop Two Compatibility
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-hadoop2-compat:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-hadoop2-compat'.
+--
+This product includes Apache HBase - Logging
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-logging:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-logging'.
+--
+This product includes Apache HBase - Metrics Implementation
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-metrics:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-metrics'.
+--
+This product includes Apache HBase - Metrics API
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-metrics-api:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-metrics-api'.
+--
+This product includes Apache HBase - Protocol
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-protocol:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-protocol'.
+--
+This product includes Apache HBase - Shaded Protocol
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-protocol-shaded:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-protocol-shaded'.
+--
+This product includes Apache HBase - Resource Bundle
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-resource-bundle:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-resource-bundle'.
+--
+This product includes Apache HBase Relocated (Shaded) GSON Libs
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase.thirdparty:hbase-shaded-gson:jar:4.1.5
+
+For source see 'https://hbase.apache.org/hbase-shaded-gson'.
+--
+This product includes Apache HBase Relocated (Shaded) Third-party Miscellaneous Libs
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase.thirdparty:hbase-shaded-miscellaneous:jar:4.1.5
+
+For source see 'https://hbase.apache.org/hbase-shaded-miscellaneous'.
+--
+This product includes Apache HBase Relocated (Shaded) Netty Libs
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase.thirdparty:hbase-shaded-netty:jar:4.1.5
+
+For source see 'https://hbase.apache.org/hbase-shaded-netty'.
+--
+This product includes Apache HBase Patched and Relocated (Shaded) Protobuf
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase.thirdparty:hbase-shaded-protobuf:jar:4.1.5
+
+For source see 'https://hbase.apache.org/hbase-shaded-protobuf'.
+--
+This product includes Apache HBase Unsafe Wrapper
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase.thirdparty:hbase-unsafe:jar:4.1.5
+
+For source see 'https://hbase.apache.org/hbase-unsafe'.
+--
+This product includes Apache Log4j API
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-api:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-api/'.
+--
+This product includes Apache Log4j Core
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-core:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-core/'.
+--
+This product includes Apache Log4j SLF4J Binding
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-slf4j-impl:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-slf4j-impl/'.
+--
+This product includes Apache Yetus - Audience Annotations
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.yetus:audience-annotations:jar:0.13.0
+
+For source see 'https://yetus.apache.org/audience-annotations'.
+--
+This product includes 'Apache ZooKeeper'
+Copyright 2009-2012 The Apache Software Foundation
+
+--
+This product includes Apache ZooKeeper - Server
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.zookeeper:zookeeper:jar:3.8.4
+
+For source see 'http://zookeeper.apache.org/zookeeper'.
+--
+This product includes Apache ZooKeeper - Jute
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.zookeeper:zookeeper-jute:jar:3.8.4
+
+For source see 'http://zookeeper.apache.org/zookeeper-jute'.
+--
+This product includes objenesis
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.objenesis:objenesis:jar:2.6
+
+For source see 'http://objenesis.org/objenesis'.
+--
+This product includes cloning
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from uk.com.robust-it:cloning:bundle:1.9.9
+
+For source see 'https://code.google.com/p/cloning/'.
+
+----
+----
+Incorporated NOTICE files from bundled works below.
+----

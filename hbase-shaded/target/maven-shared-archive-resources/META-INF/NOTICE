@@ -1,0 +1,59 @@
+
+Apache HBase - Shaded
+Copyright 2007-2025 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+====
+Apache HBase - Shaded contained works
+
+This product contains additional works that are distributed under licenses
+other than ASL v2. See LICENSE for full details
+
+
+
+--
+This product includes Apache HBase - Resource Bundle
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.hbase:hbase-resource-bundle:jar:2.5.11-SNAPSHOT
+
+For source see 'https://hbase.apache.org/hbase-build-configuration/hbase-resource-bundle'.
+--
+This product includes Apache Log4j API
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-api:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-api/'.
+--
+This product includes Apache Log4j Core
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-core:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-core/'.
+--
+This product includes Apache Log4j SLF4J Binding
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.logging.log4j:log4j-slf4j-impl:jar:2.17.2
+
+For source see 'https://logging.apache.org/log4j/2.x/log4j-slf4j-impl/'.
+--
+This product includes Apache Yetus - Audience Annotations
+
+Licensed under Apache License, Version 2.0, see LICENSE for details.
+
+incorporated from org.apache.yetus:audience-annotations:jar:0.13.0
+
+For source see 'https://yetus.apache.org/audience-annotations'.
+
+----
+----
+Incorporated NOTICE files from bundled works below.
+----

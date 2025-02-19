@@ -1,0 +1,142 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.hadoop.hbase.mob;
+
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.io.compress.Compression;
+import org.apache.hadoop.hbase.io.crypto.Encryption;
+import org.apache.hadoop.hbase.io.hfile.CacheConfig;
+import org.apache.hadoop.hbase.regionserver.StoreFileWriter;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.junit.Assert;
+
+public class MobTestUtil {
+  protected static final char FIRST_CHAR = 'a';
+  protected static final char LAST_CHAR = 'z';
+
+  protected static String generateRandomString(int demoLength) {
+    String base = "abcdefghijklmnopqrstuvwxyz";
+    Random rand = ThreadLocalRandom.current();
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < demoLength; i++) {
+      int number = rand.nextInt(base.length());
+      sb.append(base.charAt(number));
+    }
+    return sb.toString();
+  }
+
+  protected static void writeStoreFile(final StoreFileWriter writer, String caseName)
+    throws IOException {
+    writeStoreFile(writer, Bytes.toBytes(caseName), Bytes.toBytes(caseName));
+  }
+
+  /*
+   * Writes HStoreKey and ImmutableBytes data to passed writer and then closes it.
+   */
+  private static void writeStoreFile(final StoreFileWriter writer, byte[] fam, byte[] qualifier)
+    throws IOException {
+    long now = EnvironmentEdgeManager.currentTime();
+    try {
+      for (char d = FIRST_CHAR; d <= LAST_CHAR; d++) {
+        for (char e = FIRST_CHAR; e <= LAST_CHAR; e++) {
+          byte[] b = new byte[] { (byte) d, (byte) e };
+          writer.append(new KeyValue(b, fam, qualifier, now, b));
+        }
+      }
+    } finally {
+      writer.close();
+    }
+  }
+
+  /**
+   * Compare two Cells only for their row family qualifier value
+   */
+  public static void assertCellEquals(Cell firstKeyValue, Cell secondKeyValue) {
+    Assert.assertArrayEquals(CellUtil.cloneRow(firstKeyValue), CellUtil.cloneRow(secondKeyValue));
+    Assert.assertArrayEquals(CellUtil.cloneFamily(firstKeyValue),
+      CellUtil.cloneFamily(secondKeyValue));
+    Assert.assertArrayEquals(CellUtil.cloneQualifier(firstKeyValue),
+      CellUtil.cloneQualifier(secondKeyValue));
+    Assert.assertArrayEquals(CellUtil.cloneValue(firstKeyValue),
+      CellUtil.cloneValue(secondKeyValue));
+  }
+
+  public static void assertCellsValue(Table table, Scan scan, byte[] expectedValue,
+    int expectedCount) throws IOException {
+    ResultScanner results = table.getScanner(scan);
+    int count = 0;
+    for (Result res : results) {
+      List<Cell> cells = res.listCells();
+      for (Cell cell : cells) {
+        // Verify the value
+        Assert.assertArrayEquals(expectedValue, CellUtil.cloneValue(cell));
+        count++;
+      }
+    }
+    results.close();
+    Assert.assertEquals(expectedCount, count);
+  }
+
+  /**
+   * Gets the number of rows in the given table.
+   * @param table to get the scanner
+   * @return the number of rows
+   */
+  public static int countMobRows(Table table) throws IOException {
+    Scan scan = new Scan();
+    // Do not retrieve the mob data when scanning
+    scan.setAttribute(MobConstants.MOB_SCAN_RAW, Bytes.toBytes(Boolean.TRUE));
+    try (ResultScanner results = table.getScanner(scan)) {
+      int count = 0;
+      while (results.next() != null) {
+        count++;
+      }
+      return count;
+    }
+  }
+
+  public static Path generateMOBFileForRegion(Configuration conf, TableName tableName,
+    ColumnFamilyDescriptor familyDescriptor, String regionName) throws IOException {
+    Date date = new Date();
+    String dateStr = MobUtils.formatDate(date);
+    FileSystem fs = FileSystem.get(conf);
+    Path cfMOBDir = MobUtils.getMobFamilyPath(conf, tableName, familyDescriptor.getNameAsString());
+    StoreFileWriter writer = MobUtils.createWriter(conf, fs, familyDescriptor, dateStr, cfMOBDir,
+      1000L, Compression.Algorithm.NONE, "startKey", CacheConfig.DISABLED, Encryption.Context.NONE,
+      false, "");
+    writer.close();
+    return writer.getPath();
+  }
+}

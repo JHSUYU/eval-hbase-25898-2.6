@@ -1,0 +1,665 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.apache.hbase</groupId>
+  <artifactId>hbase-procedure</artifactId>
+  <version>2.5.11-SNAPSHOT</version>
+  <name>Apache HBase - Procedure</name>
+  <description>Procedure Framework</description>
+  <url>https://hbase.apache.org/hbase-build-configuration/hbase-procedure</url>
+  <inceptionYear>2007</inceptionYear>
+  <organization>
+    <name>The Apache Software Foundation</name>
+    <url>https://www.apache.org/</url>
+  </organization>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>acube123</id>
+      <name>Amitanand S. Aiyer</name>
+      <email>acube123@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>appy</id>
+      <name>Apekshit Sharma</name>
+      <email>appy@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>anastasia</id>
+      <name>Anastasia Braginsky</name>
+      <email>anastasia@apache.org</email>
+      <timezone>+2</timezone>
+    </developer>
+    <developer>
+      <id>apurtell</id>
+      <name>Andrew Purtell</name>
+      <email>apurtell@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>anoopsamjohn</id>
+      <name>Anoop Sam John</name>
+      <email>anoopsamjohn@apache.org</email>
+      <timezone>+5</timezone>
+    </developer>
+    <developer>
+      <id>antonov</id>
+      <name>Mikhail Antonov</name>
+      <email>antonov@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>ashishsinghi</id>
+      <name>Ashish Singhi</name>
+      <email>ashishsinghi@apache.org</email>
+      <timezone>+5</timezone>
+    </developer>
+    <developer>
+      <id>binlijin</id>
+      <name>Lijin Bin</name>
+      <email>binlijin@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>busbey</id>
+      <name>Sean Busbey</name>
+      <email>busbey@apache.org</email>
+      <timezone>-6</timezone>
+    </developer>
+    <developer>
+      <id>chenheng</id>
+      <name>Heng Chen</name>
+      <email>chenheng@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>chia7712</id>
+      <name>Chia-Ping Tsai</name>
+      <email>chia7712@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>ddas</id>
+      <name>Devaraj Das</name>
+      <email>ddas@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>dimaspivak</id>
+      <name>Dima Spivak</name>
+      <email>dimaspivak@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>dmeil</id>
+      <name>Doug Meil</name>
+      <email>dmeil@apache.org</email>
+      <timezone>-5</timezone>
+    </developer>
+    <developer>
+      <id>eclark</id>
+      <name>Elliott Clark</name>
+      <email>eclark@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>elserj</id>
+      <name>Josh Elser</name>
+      <email>elserj@apache.org</email>
+      <timezone>-5</timezone>
+    </developer>
+    <developer>
+      <id>enis</id>
+      <name>Enis Soztutar</name>
+      <email>enis@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>eshcar</id>
+      <name>Eshcar Hillel</name>
+      <email>eshcar@apache.org</email>
+      <timezone>+2</timezone>
+    </developer>
+    <developer>
+      <id>fenghh</id>
+      <name>Honghua Feng</name>
+      <email>fenghh@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>garyh</id>
+      <name>Gary Helmling</name>
+      <email>garyh@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>gchanan</id>
+      <name>Gregory Chanan</name>
+      <email>gchanan@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jdcryans</id>
+      <name>Jean-Daniel Cryans</name>
+      <email>jdcryans@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jeffreyz</id>
+      <name>Jeffrey Zhong</name>
+      <email>jeffreyz@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jerryjch</id>
+      <name>Jing Chen (Jerry) He</name>
+      <email>jerryjch@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jyates</id>
+      <name>Jesse Yates</name>
+      <email>jyates@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jgray</id>
+      <name>Jonathan Gray</name>
+      <email>jgray@fb.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jingchengdu</id>
+      <name>Jingcheng Du</name>
+      <email>jingchengdu@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>esteban</id>
+      <name>Esteban Gutierrez</name>
+      <email>esteban@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jmhsieh</id>
+      <name>Jonathan Hsieh</name>
+      <email>jmhsieh@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>jxiang</id>
+      <name>Jimmy Xiang</name>
+      <email>jxiang@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>kannan</id>
+      <name>Kannan Muthukkaruppan</name>
+      <email>kannan@fb.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>karthik</id>
+      <name>Karthik Ranganathan</name>
+      <email>kranganathan@fb.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>larsgeorge</id>
+      <name>Lars George</name>
+      <email>larsgeorge@apache.org</email>
+      <timezone>+1</timezone>
+    </developer>
+    <developer>
+      <id>larsh</id>
+      <name>Lars Hofhansl</name>
+      <email>larsh@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>liangxie</id>
+      <name>Liang Xie</name>
+      <email>liangxie@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>liushaohui</id>
+      <name>Shaohui Liu</name>
+      <email>liushaohui@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>liyin</id>
+      <name>Liyin Tang</name>
+      <email>liyin.tang@fb.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>liyu</id>
+      <name>Yu Li</name>
+      <email>liyu@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>mbautin</id>
+      <name>Mikhail Bautin</name>
+      <email>mbautin@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>mbertozzi</id>
+      <name>Matteo Bertozzi</name>
+      <email>mbertozzi@apache.org</email>
+      <timezone>0</timezone>
+    </developer>
+    <developer>
+      <id>misty</id>
+      <name>Misty Stanley-Jones</name>
+      <email>misty@apache.org</email>
+      <timezone>+10</timezone>
+    </developer>
+    <developer>
+      <id>ndimiduk</id>
+      <name>Nick Dimiduk</name>
+      <email>ndimiduk@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>nkeywal</id>
+      <name>Nicolas Liochon</name>
+      <email>nkeywal@apache.org</email>
+      <timezone>+1</timezone>
+    </developer>
+    <developer>
+      <id>nspiegelberg</id>
+      <name>Nicolas Spiegelberg</name>
+      <email>nspiegelberg@fb.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>octo47</id>
+      <name>Andrey Stepachev</name>
+      <email>octo47@gmail.com</email>
+      <timezone>0</timezone>
+    </developer>
+    <developer>
+      <id>rajeshbabu</id>
+      <name>Rajeshbabu Chintaguntla</name>
+      <email>rajeshbabu@apache.org</email>
+      <timezone>+5</timezone>
+    </developer>
+    <developer>
+      <id>ramkrishna</id>
+      <name>Ramkrishna S Vasudevan</name>
+      <email>ramkrishna@apache.org</email>
+      <timezone>+5</timezone>
+    </developer>
+    <developer>
+      <id>rawson</id>
+      <name>Ryan Rawson</name>
+      <email>rawson@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>sershe</id>
+      <name>Sergey Shelukhin</name>
+      <email>sershe@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>ssrungarapu</id>
+      <name>Srikanth Srungarapu</name>
+      <email>ssrungarapu@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>stack</id>
+      <name>Michael Stack</name>
+      <email>stack@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>syuanjiang</id>
+      <name>Stephen Yuan Jiang</name>
+      <email>syuanjiang@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>tedyu</id>
+      <name>Ted Yu</name>
+      <email>yuzhihong@gmail.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>todd</id>
+      <name>Todd Lipcon</name>
+      <email>todd@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>toffer</id>
+      <name>Francis Liu</name>
+      <email>toffer@apache.org</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>virag</id>
+      <name>Virag Kothari</name>
+      <email>virag@yahoo-inc.com</email>
+      <timezone>-8</timezone>
+    </developer>
+    <developer>
+      <id>yangzhe1991</id>
+      <name>Phil Yang</name>
+      <email>yangzhe1991@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>zghao</id>
+      <name>Guanghao Zhang</name>
+      <email>zghao@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>zhangduo</id>
+      <name>Duo Zhang</name>
+      <email>zhangduo@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+    <developer>
+      <id>zjushch</id>
+      <name>Chunhui Shen</name>
+      <email>zjushch@apache.org</email>
+      <timezone>+8</timezone>
+    </developer>
+  </developers>
+  <mailingLists>
+    <mailingList>
+      <name>User List</name>
+      <subscribe>user-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>user-unsubscribe@hbase.apache.org</unsubscribe>
+      <post>user@hbase.apache.org</post>
+      <archive>http://mail-archives.apache.org/mod_mbox/hbase-user/</archive>
+      <otherArchives>
+        <otherArchive>https://dir.gmane.org/gmane.comp.java.hadoop.hbase.user</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>Developer List</name>
+      <subscribe>dev-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>dev-unsubscribe@hbase.apache.org</unsubscribe>
+      <post>dev@hbase.apache.org</post>
+      <archive>http://mail-archives.apache.org/mod_mbox/hbase-dev/</archive>
+      <otherArchives>
+        <otherArchive>https://dir.gmane.org/gmane.comp.java.hadoop.hbase.devel</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>Commits List</name>
+      <subscribe>commits-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>commits-unsubscribe@hbase.apache.org</unsubscribe>
+      <archive>http://mail-archives.apache.org/mod_mbox/hbase-commits/</archive>
+    </mailingList>
+    <mailingList>
+      <name>Issues List</name>
+      <subscribe>issues-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>issues-unsubscribe@hbase.apache.org</unsubscribe>
+      <archive>http://mail-archives.apache.org/mod_mbox/hbase-issues/</archive>
+    </mailingList>
+    <mailingList>
+      <name>Builds List</name>
+      <subscribe>builds-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>builds-unsubscribe@hbase.apache.org</unsubscribe>
+      <archive>http://mail-archives.apache.org/mod_mbox/hbase-builds/</archive>
+    </mailingList>
+    <mailingList>
+      <name>User (ZH) List</name>
+      <subscribe>user-zh-subscribe@hbase.apache.org</subscribe>
+      <unsubscribe>user-zh-unsubscribe@hbase.apache.org</unsubscribe>
+      <post>user-zh@hbase.apache.org</post>
+      <archive>https://lists.apache.org/list.html?user-zh@hbase.apache.org</archive>
+    </mailingList>
+  </mailingLists>
+  <scm>
+    <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase.git/hbase-build-configuration/hbase-procedure</connection>
+    <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/hbase.git/hbase-build-configuration/hbase-procedure</developerConnection>
+    <url>https://gitbox.apache.org/repos/asf?p=hbase.git/hbase-build-configuration/hbase-procedure</url>
+  </scm>
+  <issueManagement>
+    <system>JIRA</system>
+    <url>https://issues.apache.org/jira/browse/HBASE</url>
+  </issueManagement>
+  <distributionManagement>
+    <repository>
+      <id>apache.releases.https</id>
+      <name>Apache Release Distribution Repository</name>
+      <url>https://repository.apache.org/service/local/staging/deploy/maven2</url>
+    </repository>
+    <snapshotRepository>
+      <id>apache.snapshots.https</id>
+      <name>Apache Development Snapshot Repository</name>
+      <url>https://repository.apache.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <site>
+      <id>hbase.apache.org</id>
+      <name>HBase Website at hbase.apache.org</name>
+      <url>file:///tmp/hbase-build-configuration/hbase-procedure</url>
+    </site>
+  </distributionManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.hbase.thirdparty</groupId>
+      <artifactId>hbase-shaded-protobuf</artifactId>
+      <version>4.1.5</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-protocol-shaded</artifactId>
+      <version>2.5.11-SNAPSHOT</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-common</artifactId>
+      <version>2.5.11-SNAPSHOT</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase.thirdparty</groupId>
+      <artifactId>hbase-shaded-miscellaneous</artifactId>
+      <version>4.1.5</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.33</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.github.stephenc.findbugs</groupId>
+      <artifactId>findbugs-annotations</artifactId>
+      <version>1.3.9-1</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-metrics-api</artifactId>
+      <version>2.5.11-SNAPSHOT</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.yetus</groupId>
+      <artifactId>audience-annotations</artifactId>
+      <version>0.13.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>2.10.2</version>
+      <scope>compile</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>jersey-core</artifactId>
+          <groupId>com.sun.jersey</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-jaxrs</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-xc</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-beanutils</artifactId>
+          <groupId>commons-beanutils</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsp-api</artifactId>
+          <groupId>javax.servlet.jsp</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>servlet-api</artifactId>
+          <groupId>javax.servlet</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>stax-api</artifactId>
+          <groupId>stax</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsr305</artifactId>
+          <groupId>com.google.code.findbugs</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>junit</artifactId>
+          <groupId>junit</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-core-asl</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-mapper-asl</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-log4j12</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>log4j</artifactId>
+          <groupId>log4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>reload4j</artifactId>
+          <groupId>ch.qos.reload4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-reload4j</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>2.10.2</version>
+      <scope>compile</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>jersey-core</artifactId>
+          <groupId>com.sun.jersey</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-jaxrs</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-xc</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-beanutils</artifactId>
+          <groupId>commons-beanutils</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsp-api</artifactId>
+          <groupId>javax.servlet.jsp</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>servlet-api</artifactId>
+          <groupId>javax.servlet</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>stax-api</artifactId>
+          <groupId>stax</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsr305</artifactId>
+          <groupId>com.google.code.findbugs</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>junit</artifactId>
+          <groupId>junit</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-core-asl</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jackson-mapper-asl</artifactId>
+          <groupId>org.codehaus.jackson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-log4j12</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>log4j</artifactId>
+          <groupId>log4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>reload4j</artifactId>
+          <groupId>ch.qos.reload4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-reload4j</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+  <repositories>
+    <repository>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <id>apache.snapshots</id>
+      <name>Apache Snapshot Repository</name>
+      <url>https://repository.apache.org/snapshots</url>
+    </repository>
+  </repositories>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>3.3.0</version>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
