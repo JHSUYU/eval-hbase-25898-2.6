@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.hbase.procedure2;
 
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,7 +89,6 @@ public class ProcedureEvent<T> {
    * ProcedureScheduler queues.
    */
   public static void wakeEvents(AbstractProcedureScheduler scheduler, ProcedureEvent... events) {
-    LOG.info("Waking up events, TraceUtil.isDryRun is "+ TraceUtil.isDryRun() + " this.type is "+scheduler.getClass().getSimpleName());
     scheduler.wakeEvents(events);
   }
 
@@ -115,7 +113,6 @@ public class ProcedureEvent<T> {
     // wakeProcedure adds to the front of queue, so we start from last in the
     // waitQueue' queue, so that the procedure which was added first goes in the front for
     // the scheduler queue.
-    LOG.info("Adding suspended procedures to scheduler queue isDryRun is "+ TraceUtil.isDryRun());
     procedureScheduler.addFront(suspendedProcedures.descendingIterator());
     suspendedProcedures.clear();
   }

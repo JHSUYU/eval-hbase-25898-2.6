@@ -32,22 +32,14 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import io.opentelemetry.api.baggage.Baggage;
-import io.opentelemetry.context.Context;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.exceptions.IllegalArgumentIOException;
@@ -57,7 +49,6 @@ import org.apache.hadoop.hbase.procedure2.store.ProcedureStore;
 import org.apache.hadoop.hbase.procedure2.store.ProcedureStore.ProcedureIterator;
 import org.apache.hadoop.hbase.procedure2.store.ProcedureStore.ProcedureStoreListener;
 import org.apache.hadoop.hbase.procedure2.trace.ProcedureSpanBuilder;
-import org.apache.hadoop.hbase.procedure2.util.DryRunUtil;
 import org.apache.hadoop.hbase.procedure2.util.StringUtils;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hbase.trace.TraceUtil;
@@ -73,7 +64,6 @@ import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ProcedureProtos.ProcedureState;
-import static org.apache.hadoop.hbase.trace.TraceUtil.FAST_FORWARD_KEY;
 
 /**
  * Thread Pool that executes the submitted procedures. The executor has a ProcedureStore associated.
@@ -255,7 +245,7 @@ public class ProcedureExecutor<TEnvironment> {
   /**
    * Scheduler/Queue that contains runnable procedures.
    */
-  private ProcedureScheduler scheduler;
+  private final ProcedureScheduler scheduler;
 
   private final Executor forceUpdateExecutor = Executors.newSingleThreadExecutor(
     new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Force-Update-PEWorker-%d").build());
@@ -650,7 +640,7 @@ public class ProcedureExecutor<TEnvironment> {
     // Create the workers
     workerId.set(0);
     workerThreads = new CopyOnWriteArrayList<>();
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < corePoolSize; ++i) {
       workerThreads.add(new WorkerThread(threadGroup));
     }
 
@@ -1107,11 +1097,8 @@ public class ProcedureExecutor<TEnvironment> {
     store.insert(proc, null);
     LOG.debug("Stored {}", proc);
 
-    //TraceUtil.createDryRunBaggage();
-    long res = pushProcedure(proc);
-    //TraceUtil.removeDryRunBaggage();
     // Add the procedure to the executor
-    return res;
+    return pushProcedure(proc);
   }
 
   /**
@@ -1972,16 +1959,6 @@ public class ProcedureExecutor<TEnvironment> {
     }
   }
 
-  private void submitChildrenProcedures$instrumentation(Procedure<TEnvironment>[] subprocs) {
-    for (int i = 0; i < subprocs.length; ++i) {
-      Procedure<TEnvironment> subproc = subprocs[i];
-      subproc.updateMetricsOnSubmit(getEnvironment());
-      assert !procedures.containsKey(subproc.getProcId());
-      procedures.put(subproc.getProcId(), subproc);
-      scheduler.addFront(subproc);
-    }
-  }
-
   private void countDownChildren(RootProcedureState<TEnvironment> procStack,
     Procedure<TEnvironment> procedure) {
     Procedure<TEnvironment> parent = procedures.get(procedure.getParentProcId());
@@ -2096,145 +2073,7 @@ public class ProcedureExecutor<TEnvironment> {
   // ==========================================================================
   // Worker Thread
   // ==========================================================================
-
-
-  public void createShadowThread() {
-    LOG.info("Creating shadow eviction thread");
-    if(TraceUtil.forkCount > 0){
-      return;
-    }
-
-    TraceUtil.forkCount ++;
-
-    Baggage fastForwardBaggage =
-      Baggage.current().toBuilder().put(FAST_FORWARD_KEY, "true").build();
-    Context fastForwardContext = Context.current().with(fastForwardBaggage);
-    fastForwardContext.makeCurrent();
-
-    ExecutorService baseExecutor = new ThreadPoolExecutor(1,  // corePoolSize
-      1,  // maximumPoolSize
-      0L, // keepAliveTime
-      TimeUnit.MILLISECONDS,  // TimeUnit for keepAliveTime
-      new LinkedBlockingQueue<>()  // workQueue
-    );
-
-    Thread shadowThread = new ShadowWorkerThread();
-    Future<?> future = baseExecutor.submit(shadowThread);
-
-    try {
-      future.get(5,TimeUnit.SECONDS);
-    } catch (InterruptedException | ExecutionException e) {
-      e.printStackTrace();
-    } catch (TimeoutException e) {
-      LOG.info("Shadow thread initialization timed out, but will continue running in background");
-    } finally {
-      baseExecutor.shutdown();
-    }
-
-    LOG.info("Shadow eviction thread created");
-
-  }
-
-  public class ShadowWorkerThread extends StoppableThread {
-    private final AtomicLong executionStartTime = new AtomicLong(Long.MAX_VALUE);
-    private volatile Procedure<TEnvironment> activeProcedure;
-
-    public ShadowWorkerThread(){
-      this(new ThreadGroup("ShadowPEWorker-"));
-    }
-
-    public ShadowWorkerThread(ThreadGroup group) {
-      this(group, "ShadowPEWorker-");
-    }
-
-    protected ShadowWorkerThread(ThreadGroup group, String prefix) {
-      super(group, prefix + workerId.incrementAndGet());
-      setDaemon(true);
-    }
-
-    @Override
-    public void sendStopSignal() {
-      scheduler.signalAll();
-    }
-
-    /**
-     * Encapsulates execution of the current {@link #activeProcedure} for easy tracing.
-     */
-    private long runProcedure() throws IOException {
-      final Procedure<TEnvironment> proc = this.activeProcedure;
-      int activeCount = activeExecutorCount.incrementAndGet();
-      int runningCount = store.setRunningProcedureCount(activeCount);
-      LOG.trace("Execute pid={} runningCount={}, activeCount={}", proc.getProcId(), runningCount,
-        activeCount);
-      executionStartTime.set(EnvironmentEdgeManager.currentTime());
-      IdLock.Entry lockEntry = procExecutionLock.getLockEntry(proc.getProcId());
-      try {
-        executeProcedure(proc);
-      } catch (AssertionError e) {
-        LOG.info("ASSERT pid=" + proc.getProcId(), e);
-        throw e;
-      } finally {
-        procExecutionLock.releaseLockEntry(lockEntry);
-        activeCount = activeExecutorCount.decrementAndGet();
-        runningCount = store.setRunningProcedureCount(activeCount);
-        LOG.trace("Halt pid={} runningCount={}, activeCount={}", proc.getProcId(), runningCount,
-          activeCount);
-        this.activeProcedure = null;
-        executionStartTime.set(Long.MAX_VALUE);
-      }
-      return EnvironmentEdgeManager.currentTime();
-    }
-
-    @Override
-    public void run() {
-      long lastUpdate = EnvironmentEdgeManager.currentTime();
-      try {
-        while (isRunning() && keepAlive(lastUpdate)) {
-
-          //cast scheduler to SimpleProcedureScheduler
-          LOG.info("Entering WorkerThread");
-          SimpleProcedureScheduler tmp = null;
-          Procedure proc = null;
-          if(scheduler instanceof SimpleProcedureScheduler){
-            tmp = (SimpleProcedureScheduler) scheduler;
-            proc = tmp.poll(keepAliveTime, TimeUnit.MILLISECONDS);
-          }else{
-            proc = scheduler.poll(keepAliveTime, TimeUnit.MILLISECONDS);
-          }
-          LOG.info("WorkerThread run() called, fetch proc is {}", proc);
-          if (proc == null) {
-            continue;
-          }
-          this.activeProcedure = proc;
-          lastUpdate = TraceUtil.trace(this::runProcedure, new ProcedureSpanBuilder(proc));
-        }
-      } catch (Throwable t) {
-        LOG.warn("Worker terminating UNNATURALLY {}", this.activeProcedure, t);
-      } finally {
-        LOG.trace("Worker terminated.");
-      }
-      workerThreads.remove(this);
-    }
-
-    @Override
-    public String toString() {
-      Procedure<?> p = this.activeProcedure;
-      return getName() + "(pid=" + (p == null ? Procedure.NO_PROC_ID : p.getProcId() + ")");
-    }
-
-    /** Returns the time since the current procedure is running */
-    public long getCurrentRunTime() {
-      return EnvironmentEdgeManager.currentTime() - executionStartTime.get();
-    }
-
-    // core worker never timeout
-    protected boolean keepAlive(long lastUpdate) {
-      return true;
-    }
-  }
-
-
-  public class WorkerThread extends StoppableThread {
+  private class WorkerThread extends StoppableThread {
     private final AtomicLong executionStartTime = new AtomicLong(Long.MAX_VALUE);
     private volatile Procedure<TEnvironment> activeProcedure;
 
@@ -2285,18 +2124,8 @@ public class ProcedureExecutor<TEnvironment> {
       long lastUpdate = EnvironmentEdgeManager.currentTime();
       try {
         while (isRunning() && keepAlive(lastUpdate)) {
-
-            //cast scheduler to SimpleProcedureScheduler
-          LOG.info("Entering WorkerThread, scheduler is {}", scheduler.getClass().getName());
-          SimpleProcedureScheduler tmp = null;
-          Procedure proc = null;
-          if(scheduler instanceof SimpleProcedureScheduler){
-            tmp = (SimpleProcedureScheduler) scheduler;
-            proc = tmp.poll(keepAliveTime, TimeUnit.MILLISECONDS);
-          }else {
-            proc = scheduler.poll(keepAliveTime, TimeUnit.MILLISECONDS);
-          }
-          LOG.info("WorkerThread run() called, fetch proc is {}", proc);
+          @SuppressWarnings("unchecked")
+          Procedure<TEnvironment> proc = scheduler.poll(keepAliveTime, TimeUnit.MILLISECONDS);
           if (proc == null) {
             continue;
           }
@@ -2327,8 +2156,6 @@ public class ProcedureExecutor<TEnvironment> {
       return true;
     }
   }
-
-
 
   // A worker thread which can be added when core workers are stuck. Will timeout after
   // keepAliveTime if there is no procedure to run.

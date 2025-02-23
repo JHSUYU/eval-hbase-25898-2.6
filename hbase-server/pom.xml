@@ -39,11 +39,6 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>uk.com.robust-it</groupId>
-      <artifactId>cloning</artifactId>
-      <version>1.9.9</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.hbase.thirdparty</groupId>
       <artifactId>hbase-shaded-protobuf</artifactId>
     </dependency>
@@ -280,16 +275,6 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.kerby</groupId>
-      <artifactId>kerb-client</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.kerby</groupId>
-      <artifactId>kerb-simplekdc</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -794,6 +779,11 @@
         <dependency>
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-minikdc</artifactId>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.kerby</groupId>
+          <artifactId>kerb-simplekdc</artifactId>
           <scope>test</scope>
         </dependency>
       </dependencies>

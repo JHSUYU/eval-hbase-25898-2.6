@@ -313,7 +313,7 @@ public class MemStoreFlusher implements FlushRequester {
       while (!server.isStopped()) {
         FlushQueueEntry fqe = null;
         try {
-          wakeupPending.set(false); // allo w someone to wake us up again
+          wakeupPending.set(false); // allow someone to wake us up again
           fqe = flushQueue.poll(threadWakeFrequency, TimeUnit.MILLISECONDS);
           if (fqe == null || fqe == WAKEUPFLUSH_INSTANCE) {
             FlushType type = isAboveLowWaterMark();

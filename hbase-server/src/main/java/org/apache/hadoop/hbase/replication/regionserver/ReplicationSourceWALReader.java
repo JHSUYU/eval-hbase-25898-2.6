@@ -122,11 +122,6 @@ class ReplicationSourceWALReader extends Thread {
       + ", replicationBatchQueueCapacity=" + batchCount);
   }
 
-  //zookeeper /data/rs1/log1/position rs1 crash HDFS close fail path
-  ///data/rs2/log1/position/ 还是path?
-  //counter
-  //
-
   @Override
   public void run() {
     int sleepMultiplier = 1;
@@ -162,7 +157,6 @@ class ReplicationSourceWALReader extends Thread {
               readWALEntries(entryStream, batch);
               currentPosition = entryStream.getPosition();
             }
-            //check zookeeper path
             // need to propagate the batch even it has no entries since it may carry the last
             // sequence id information for serial replication.
             LOG.debug("Read {} WAL entries eligible for replication", batch.getNbEntries());

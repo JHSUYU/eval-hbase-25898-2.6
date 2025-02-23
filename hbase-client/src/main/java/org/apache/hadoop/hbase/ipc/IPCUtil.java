@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.ipc;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -37,7 +36,6 @@ import org.apache.hadoop.hbase.exceptions.ConnectionClosedException;
 import org.apache.hadoop.hbase.exceptions.ConnectionClosingException;
 import org.apache.hadoop.hbase.exceptions.TimeoutIOException;
 import org.apache.hadoop.hbase.net.Address;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.ipc.RemoteException;

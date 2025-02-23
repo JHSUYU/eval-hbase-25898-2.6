@@ -17,52 +17,25 @@
  */
 package org.apache.hadoop.hbase.trace;
 
-import com.rits.cloning.Cloner;
 import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.ContextKey;
 import io.opentelemetry.context.Scope;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.apache.hadoop.hbase.Version;
 import org.apache.hadoop.hbase.util.FutureUtils;
 import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Private
 public final class TraceUtil {
 
-  public static int forkCount = 0;
-
-  public static Object callerClass = null;
-
-  public static Map<String, String> executingUnits = new HashMap<>();
-
-  public static Set<Long> originalThreads = new HashSet<>();
   private TraceUtil() {
-
   }
 
   public static Tracer getGlobalTracer() {
@@ -134,7 +107,7 @@ public final class TraceUtil {
    * {@code futures} are completed.
    */
   public static <T> List<CompletableFuture<T>>
-  tracedFutures(Supplier<List<CompletableFuture<T>>> action, Supplier<Span> spanSupplier) {
+    tracedFutures(Supplier<List<CompletableFuture<T>>> action, Supplier<Span> spanSupplier) {
     Span span = spanSupplier.get();
     try (Scope ignored = span.makeCurrent()) {
       List<CompletableFuture<T>> futures = action.get();
@@ -250,131 +223,4 @@ public final class TraceUtil {
       span.end();
     }
   }
-
-  public static boolean debug = false;
-  public static final String DRY_RUN_KEY = "is_dry_run";
-  public static final String FAST_FORWARD_KEY = "is_fast_forward";
-
-  public static final String IS_SHADOW_THREAD_KEY = "is_shadow_thread";
-
-  public static final String SHOULD_RELEASE_LOCK_KEY = "should_release_lock";
-  public static ContextKey<Boolean> IS_DRY_RUN = ContextKey.named("is_dry_run");
-
-  public static boolean isDryRun() {
-    if(debug){
-      return false;
-    }else{
-      return Baggage.current().getEntryValue(DRY_RUN_KEY) != null && Boolean.parseBoolean(Baggage.current().getEntryValue(DRY_RUN_KEY));
-    }
-    //return false;
-  }
-
-  public static boolean isShadow() {
-    if(debug){
-      return false;
-    }else{
-      return Baggage.current().getEntryValue(IS_SHADOW_THREAD_KEY) != null && Boolean.parseBoolean(Baggage.current().getEntryValue(IS_SHADOW_THREAD_KEY));
-    }
-    //return false;
-  }
-
-  public static boolean isFastForward() {
-    //print thread information
-    boolean res = Baggage.current().getEntryValue(FAST_FORWARD_KEY) != null && Boolean.parseBoolean(Baggage.current().getEntryValue(FAST_FORWARD_KEY));
-    System.out.println("Thread: " + Thread.currentThread().getName() + "result is: " + res)  ;
-    if(debug){
-      return false;
-    }else{
-      return res;
-    }
-  }
-
-  public static Scope getDryRunTraceScope(boolean needsDryRunTrace) {
-    if (!needsDryRunTrace) {
-      return Baggage.empty().makeCurrent();
-    }
-    Baggage dryRunBaggage = Baggage.current().toBuilder()
-      .put(DRY_RUN_KEY, "true")
-      .build();
-    return dryRunBaggage.makeCurrent();
-  }
-
-  public static Baggage createFastForwardBaggage(boolean flag) {
-    if(!flag){
-      return null;
-    }
-    Baggage fastForwardBaggage = Baggage.current().toBuilder().put(FAST_FORWARD_KEY, "true").build();
-    fastForwardBaggage.makeCurrent();
-    Context.current().with(fastForwardBaggage).makeCurrent();
-    return fastForwardBaggage;
-  }
-
-  public static Baggage createShadowBaggage() {
-    Baggage shadowBaggage = Baggage.current().toBuilder().put(IS_SHADOW_THREAD_KEY, "true").build();
-    shadowBaggage.makeCurrent();
-    Context.current().with(shadowBaggage).makeCurrent();
-    return shadowBaggage;
-  }
-
-  public static Baggage createFastForwardBaggage() {
-    Baggage fastForwardBaggage = Baggage.current().toBuilder().put(FAST_FORWARD_KEY, "true").build();
-    fastForwardBaggage.makeCurrent();
-    Context.current().with(fastForwardBaggage).makeCurrent();
-    return fastForwardBaggage;
-  }
-
-  public static Baggage createDryRunBaggage() {
-    Baggage dryRunBaggage = Baggage.current().toBuilder().put(DRY_RUN_KEY, "true").build();
-    dryRunBaggage.makeCurrent();
-    Context.current().with(dryRunBaggage).makeCurrent();
-    return dryRunBaggage;
-  }
-
-  public static void removeDryRunBaggage() {
-    Baggage emptyBaggage = Baggage.empty();
-    emptyBaggage.makeCurrent();
-    Context.current().with(emptyBaggage).makeCurrent();
-  }
-
-  public static void clearBaggage() {
-    System.out.println("Clearing baggage");
-    Baggage emptyBaggage = Baggage.empty();
-    emptyBaggage.makeCurrent();
-    Context.current().with(emptyBaggage).makeCurrent();
-  }
-
-  private static final class ExecutionUnit {
-    final String methodSignature;
-    final String unitId;
-
-    ExecutionUnit(String methodSignature, String unitId) {
-      this.methodSignature = methodSignature;
-      this.unitId = unitId;
-    }
-  }
-
-  private static final ThreadLocal<Integer> index = ThreadLocal.withInitial(() -> 0);
-  private static final ThreadLocal<ArrayList<ExecutionUnit>> executionArray =
-    ThreadLocal.withInitial(ArrayList::new);
-
-  public static void recordExecutingUnit(String methodSig, String unitId) {
-    ArrayList<ExecutionUnit> array = executionArray.get();
-
-    array.add(new ExecutionUnit(methodSig, unitId));
-
-  }
-
-  public static int getExecutingUnit() {
-    int index = TraceUtil.index.get();
-
-    ArrayList<ExecutionUnit> array = executionArray.get();
-
-    assert index >= 0 && index < array.size();
-    ExecutionUnit unit = array.get(index);
-    TraceUtil.index.set(index + 1);
-
-    return Integer.parseInt(unit.unitId);
-  }
-
-
 }

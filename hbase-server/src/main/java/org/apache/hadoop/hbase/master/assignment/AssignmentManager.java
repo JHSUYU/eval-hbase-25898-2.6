@@ -27,13 +27,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -41,8 +36,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import io.opentelemetry.api.baggage.Baggage;
-import io.opentelemetry.context.Context;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HBaseIOException;
@@ -86,14 +79,8 @@ import org.apache.hadoop.hbase.procedure2.ProcedureExecutor;
 import org.apache.hadoop.hbase.procedure2.ProcedureInMemoryChore;
 import org.apache.hadoop.hbase.procedure2.util.StringUtils;
 import org.apache.hadoop.hbase.regionserver.SequenceId;
-import org.apache.hadoop.hbase.trace.DryRunTraceUtil;
-import org.apache.hadoop.hbase.trace.TraceUtil;
-import org.apache.hadoop.hbase.trace.WrapContext;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.ConditionVariableWrapper;
-import org.apache.hadoop.hbase.util.DryRunUtil;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.LockWrapper;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.hadoop.hbase.util.VersionInfo;
@@ -109,7 +96,6 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProto
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProtos.RegionStateTransition.TransitionCode;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProtos.ReportRegionStateTransitionRequest;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProtos.ReportRegionStateTransitionResponse;
-import static org.apache.hadoop.hbase.trace.TraceUtil.FAST_FORWARD_KEY;
 
 /**
  * The AssignmentManager is the coordinator for region assign/unassign operations.
@@ -1906,11 +1892,8 @@ public class AssignmentManager {
           pid = procExec.submitProcedure(
             new HBCKServerCrashProcedure(mpe, serverName, shouldSplitWal, carryingMeta));
         } else {
-          ServerCrashProcedure scp = new ServerCrashProcedure(mpe, serverName, shouldSplitWal,
-            carryingMeta);
-          scp.isDryRun = true;
           pid = procExec.submitProcedure(
-            scp);
+            new ServerCrashProcedure(mpe, serverName, shouldSplitWal, carryingMeta));
         }
         LOG.info("Scheduled ServerCrashProcedure pid={} for {} (carryingMeta={}){}.", pid,
           serverName, carryingMeta,
@@ -2224,28 +2207,14 @@ public class AssignmentManager {
   // Assign Queue (Assign/Balance)
   // ============================================================================================
   private final ArrayList<RegionStateNode> pendingAssignQueue = new ArrayList<RegionStateNode>();
-
-  public boolean pendingAssignQueueIsTainted = false;
-
-  public ArrayList<RegionStateNode> pendingAssignQueue$dryrun = new ArrayList<RegionStateNode>();
   private final ReentrantLock assignQueueLock = new ReentrantLock();
-
-  public LockWrapper assignQueueLock$dryrun = new LockWrapper(assignQueueLock);
   private final Condition assignQueueFullCond = assignQueueLock.newCondition();
-
-  public final ConditionVariableWrapper assignQueueFullCond$dryrun = new ConditionVariableWrapper(assignQueueFullCond, assignQueueLock);
-
 
   /**
    * Add the assign operation to the assignment queue. The pending assignment operation will be
    * processed, and each region will be assigned by a server using the balancer.
    */
-
   protected void queueAssign(final RegionStateNode regionNode) {
-    if(DryRunTraceUtil.isDryRun()){
-      queueAssign$instrumentation(regionNode);
-      return;
-    }
     regionNode.getProcedureEvent().suspend();
 
     // TODO: quick-start for meta and the other sys-tables?
@@ -2262,108 +2231,20 @@ public class AssignmentManager {
       assignQueueLock.unlock();
     }
   }
-  protected void queueAssign$instrumentation(final RegionStateNode regionNode) {
-    regionNode.getProcedureEvent().suspend();
-
-    // TODO: quick-start for meta and the other sys-tables?
-    assignQueueLock$dryrun.lock();
-    try {
-      pendingAssignQueue$dryrun.add(regionNode);
-      LOG.info("Region added to pendingAssignQueue$dryrun, size: " + pendingAssignQueue$dryrun.size() + " isDryRun is" + DryRunTraceUtil.isDryRun()+"hashcode is"+pendingAssignQueue$dryrun.hashCode());
-      if (
-        regionNode.isSystemTable() || pendingAssignQueue$dryrun.size() == 1
-          || pendingAssignQueue$dryrun.size() >= assignDispatchWaitQueueMaxSize
-      ) {
-        DryRunUtil.target = this;
-        assignQueueFullCond$dryrun.signal();
-      }
-    } finally {
-      assignQueueLock$dryrun.unlock();
-    }
-  }
 
   private void startAssignmentThread() {
-    DryRunUtil.setTarget(this);
-    assignThread = new AssignmentThread(master.getServerName().toShortString());
+    assignThread = new Thread(master.getServerName().toShortString()) {
+      @Override
+      public void run() {
+        while (isRunning()) {
+          processAssignQueue();
+        }
+        pendingAssignQueue.clear();
+      }
+    };
     assignThread.setDaemon(true);
     assignThread.start();
   }
-
-  public void createShadowThread() {
-    LOG.info("Creating shadow thread");
-    if(TraceUtil.forkCount > 0){
-      LOG.info("Shadow thread already created");
-      return;
-    }
-
-    TraceUtil.forkCount ++;
-
-    ExecutorService baseExecutor = new ThreadPoolExecutor(1,  // corePoolSize
-      1,  // maximumPoolSize
-      0L, // keepAliveTime
-      TimeUnit.MILLISECONDS,  // TimeUnit for keepAliveTime
-      new LinkedBlockingQueue<>()  // workQueue
-    );
-
-    AssignmentThread shadowThread = new AssignmentThread("ShadowAssignmentThread");
-    shadowThread.isShadow = true;
-    shadowThread.originalThreadId = Thread.currentThread().getId();
-    LOG.info("Shadow Assignment Thread created");
-    LOG.info("target.pendingAssignQueue$dryrun size is"+pendingAssignQueue$dryrun.size() +"hashcode is"+pendingAssignQueue$dryrun.hashCode());
-    Future<?> future = baseExecutor.submit(shadowThread);
-
-    try {
-      future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      e.printStackTrace();
-    } finally {
-      baseExecutor.shutdown();
-    }
-
-    LOG.info("Shadow Assignment Thread finished");
-
-  }
-
-  public class AssignmentThread extends Thread {
-    public boolean isShadow = false;
-
-    public long originalThreadId = 0;
-
-    public AssignmentThread(String name) {
-      super(name);
-      setDaemon(true);
-    }
-
-
-
-    @Override
-    public void run() {
-      //Context :k1,v1;k2,v2
-      //access k,v k:isDryRun k:isFastForward, v true
-      while (isRunning()) {
-        LOG.info("enter processAssignQueue");
-        processAssignQueue();
-      }
-      pendingAssignQueue.clear();
-    }
-  }
-
-//  public class ShadowAssignmentThread extends Thread {
-//
-//    public ShadowAssignmentThread(String name) {
-//      super(name);
-//      setDaemon(true);
-//    }
-//
-//    @Override
-//    public void run() {
-//      while (isRunning()) {
-//        LOG.info("enter processAssignQueue$shadow");
-//        processAssignQueue$shadow();
-//      }
-//      pendingAssignQueue$dryrun.clear();
-//    }
-//  }
 
   private void stopAssignmentThread() {
     assignQueueSignal();
@@ -2391,71 +2272,29 @@ public class AssignmentManager {
   private HashMap<RegionInfo, RegionStateNode> waitOnAssignQueue() {
     HashMap<RegionInfo, RegionStateNode> regions = null;
 
-    //record state
-    assignQueueLock$dryrun.lock();
-    LOG.info("acquired lock isDryRun is" + DryRunTraceUtil.isDryRun() + "isShadow is" + DryRunTraceUtil.isShadow() + "size is" + pendingAssignQueue$dryrun.size());
+    assignQueueLock.lock();
     try {
       if (pendingAssignQueue.isEmpty() && isRunning()) {
-        //record state
-        LOG.info("wait on cv" + DryRunTraceUtil.isDryRun() + "isShadow is" + DryRunTraceUtil.isShadow() + "size is" + pendingAssignQueue$dryrun.size());
-        assignQueueFullCond$dryrun.await();
+        assignQueueFullCond.await();
       }
-      LOG.info("release on cv" + DryRunTraceUtil.isDryRun() + "isShadow is" + DryRunTraceUtil.isShadow() + "size is" + pendingAssignQueue$dryrun.size());
-
-      LOG.info(" thread woke up isDryRun is" + DryRunTraceUtil.isDryRun());
 
       if (!isRunning()) {
         return null;
       }
-
-
-
-      assignQueueFullCond$dryrun.await(assignDispatchWaitMillis, TimeUnit.MILLISECONDS);
-      LOG.info("release on cv await time" + DryRunTraceUtil.isDryRun() + "isShadow is" + DryRunTraceUtil.isShadow() + "size is" + pendingAssignQueue$dryrun.size());
+      assignQueueFullCond.await(assignDispatchWaitMillis, TimeUnit.MILLISECONDS);
       regions = new HashMap<RegionInfo, RegionStateNode>(pendingAssignQueue.size());
       for (RegionStateNode regionNode : pendingAssignQueue) {
         regions.put(regionNode.getRegionInfo(), regionNode);
       }
-      LOG.info("Shadow thread processing regions, size: " + regions.size() +" isDryRun is" + DryRunTraceUtil.isDryRun());
       pendingAssignQueue.clear();
     } catch (InterruptedException e) {
       LOG.warn("got interrupted ", e);
       Thread.currentThread().interrupt();
     } finally {
-      assignQueueLock$dryrun.unlock();
+      assignQueueLock.unlock();
     }
     return regions;
   }
-
-  @edu.umd.cs.findbugs.annotations.SuppressWarnings("WA_AWAIT_NOT_IN_LOOP")
-//  private HashMap<RegionInfo, RegionStateNode> waitOnAssignQueue$shadow() {
-//    HashMap<RegionInfo, RegionStateNode> regions = null;
-//
-//    assignQueueLock$dryrun.lock();
-//    try {
-//      if (pendingAssignQueue$dryrun.isEmpty() && isRunning()) {
-//        assignQueueFullCond$dryrun.await();
-//      }
-//      LOG.info("Shadow thread woke up");
-//
-//      if (!isRunning()) {
-//        return null;
-//      }
-//      //assignQueueFullCond$dryrun.await();
-//      //assignQueueFullCond.await(assignDispatchWaitMillis, TimeUnit.MILLISECONDS);
-//      regions = new HashMap<RegionInfo, RegionStateNode>(pendingAssignQueue$dryrun.size());
-//      for (RegionStateNode regionNode : pendingAssignQueue$dryrun) {
-//        regions.put(regionNode.getRegionInfo(), regionNode);
-//      }
-//      pendingAssignQueue$dryrun.clear();
-//    } catch (InterruptedException e) {
-//      LOG.warn("got interrupted ", e);
-//      Thread.currentThread().interrupt();
-//    } finally {
-//      assignQueueLock$dryrun.unlock();
-//    }
-//    return regions;
-//  }
 
   private void processAssignQueue() {
     final HashMap<RegionInfo, RegionStateNode> regions = waitOnAssignQueue();
@@ -2510,7 +2349,7 @@ public class AssignmentManager {
         LOG.warn("Filtering old server versions and the excluded produced an empty set; "
           + "instead considering all candidate servers!");
       }
-      LOG.info("Processing assignQueue; systemServersCount=" + serversForSysTables.size()
+      LOG.debug("Processing assignQueue; systemServersCount=" + serversForSysTables.size()
         + ", allServersCount=" + servers.size());
       processAssignmentPlans(regions, null, systemHRIs,
         serversForSysTables.isEmpty() && !containsBogusAssignments(regions, systemHRIs)
@@ -2520,73 +2359,6 @@ public class AssignmentManager {
 
     processAssignmentPlans(regions, retainMap, userHRIs, servers);
   }
-
-
-//  private void processAssignQueue$shadow() {
-//    final HashMap<RegionInfo, RegionStateNode> regions = waitOnAssignQueue$shadow();
-//    if (regions == null || regions.size() == 0 || !isRunning()) {
-//      return;
-//    }
-//
-//    if (LOG.isTraceEnabled()) {
-//      LOG.trace("PROCESS ASSIGN QUEUE regionCount=" + regions.size());
-//    }
-//
-//    // TODO: Optimize balancer. pass a RegionPlan?
-//    final HashMap<RegionInfo, ServerName> retainMap = new HashMap<>();
-//    final List<RegionInfo> userHRIs = new ArrayList<>(regions.size());
-//    // Regions for system tables requiring reassignment
-//    final List<RegionInfo> systemHRIs = new ArrayList<>();
-//    for (RegionStateNode regionStateNode : regions.values()) {
-//      boolean sysTable = regionStateNode.isSystemTable();
-//      final List<RegionInfo> hris = sysTable ? systemHRIs : userHRIs;
-//      if (regionStateNode.getRegionLocation() != null) {
-//        LOG.info("Adding region to retainMap: " + regionStateNode.getRegionInfo().getRegionNameAsString() + " isDryRun is" + TraceUtil.isDryRun());
-//        retainMap.put(regionStateNode.getRegionInfo(), regionStateNode.getRegionLocation());
-//      } else {
-//        LOG.info("Adding region to hris: " + regionStateNode.getRegionInfo().getRegionNameAsString() + " isDryRun is" + TraceUtil.isDryRun());
-//        hris.add(regionStateNode.getRegionInfo());
-//      }
-//    }
-//
-//    // TODO: connect with the listener to invalidate the cache
-//
-//    // TODO use events
-//    List<ServerName> servers = master.getServerManager().createDestinationServersList();
-//    for (int i = 0; servers.size() < 1; ++i) {
-//      // Report every fourth time around this loop; try not to flood log.
-//      if (i % 4 == 0) {
-//        LOG.warn("No servers available; cannot place " + regions.size() + " unassigned regions.");
-//      }
-//
-//      if (!isRunning()) {
-//        LOG.debug("Stopped! Dropping assign of " + regions.size() + " queued regions.");
-//        return;
-//      }
-//      Threads.sleep(250);
-//      servers = master.getServerManager().createDestinationServersList();
-//    }
-//
-//    if (!systemHRIs.isEmpty()) {
-//      // System table regions requiring reassignment are present, get region servers
-//      // not available for system table regions
-//      final List<ServerName> excludeServers = getExcludedServersForSystemTable();
-//      List<ServerName> serversForSysTables =
-//        servers.stream().filter(s -> !excludeServers.contains(s)).collect(Collectors.toList());
-//      if (serversForSysTables.isEmpty()) {
-//        LOG.warn("Filtering old server versions and the excluded produced an empty set; "
-//          + "instead considering all candidate servers!");
-//      }
-//      LOG.info("Processing assignQueue; systemServersCount=" + serversForSysTables.size()
-//        + ", allServersCount=" + servers.size());
-//      processAssignmentPlans(regions, null, systemHRIs,
-//        serversForSysTables.isEmpty() && !containsBogusAssignments(regions, systemHRIs)
-//          ? servers
-//          : serversForSysTables);
-//    }
-//
-//    processAssignmentPlans(regions, retainMap, userHRIs, servers);
-//  }
 
   private boolean containsBogusAssignments(Map<RegionInfo, RegionStateNode> regions,
     List<RegionInfo> hirs) {
@@ -2606,7 +2378,7 @@ public class AssignmentManager {
     final List<ServerName> servers) {
     boolean isTraceEnabled = LOG.isTraceEnabled();
     if (isTraceEnabled) {
-       LOG.trace("Available servers count=" + servers.size() + ": " + servers);
+      LOG.trace("Available servers count=" + servers.size() + ": " + servers);
     }
 
     final LoadBalancer balancer = getBalancer();
@@ -2616,7 +2388,6 @@ public class AssignmentManager {
         LOG.trace("retain assign regions=" + retainMap);
       }
       try {
-        LOG.info("Retain assignment for regions, size: " + retainMap.size() + " isDryRun is" + DryRunTraceUtil.isDryRun());
         acceptPlan(regions, balancer.retainAssignment(retainMap, servers));
       } catch (HBaseIOException e) {
         LOG.warn("unable to retain assignment", e);
@@ -2632,7 +2403,6 @@ public class AssignmentManager {
         LOG.trace("round robin regions=" + hris);
       }
       try {
-        LOG.info("Round-robin assignment for regions, size: " + hris.size() + " isDryRun is" + DryRunTraceUtil.isDryRun());
         acceptPlan(regions, balancer.roundRobinAssignment(hris, servers));
       } catch (HBaseIOException e) {
         LOG.warn("unable to round-robin assignment", e);
@@ -2655,11 +2425,8 @@ public class AssignmentManager {
       final ServerName server = entry.getKey();
       for (RegionInfo hri : entry.getValue()) {
         final RegionStateNode regionNode = regions.get(hri);
-        LOG.info("Assigning region " + hri.getRegionNameAsString() + " to " + server + "isDryRun is" + DryRunTraceUtil.isDryRun());
         regionNode.setRegionLocation(server);
         if (server.equals(LoadBalancer.BOGUS_SERVER_NAME) && regionNode.isSystemTable()) {
-          LOG.info("Skipping assigning region " + hri.getRegionNameAsString() + " to " + server
-            + " as it is a system table region");
           assignQueueLock.lock();
           try {
             pendingAssignQueue.add(regionNode);
@@ -2667,7 +2434,6 @@ public class AssignmentManager {
             assignQueueLock.unlock();
           }
         } else {
-          LOG.info("Assigning region " + hri.getRegionNameAsString() + " to " + server + "isDryRun is" + DryRunTraceUtil.isDryRun());
           events[evcount++] = regionNode.getProcedureEvent();
         }
       }
@@ -2682,7 +2448,6 @@ public class AssignmentManager {
 
   private void addToPendingAssignment(final HashMap<RegionInfo, RegionStateNode> regions,
     final Collection<RegionInfo> pendingRegions) {
-    LOG.info("Adding regions to pending assignment, size: " + pendingRegions.size() + " isDryRun is" + DryRunTraceUtil.isDryRun());
     assignQueueLock.lock();
     try {
       for (RegionInfo hri : pendingRegions) {

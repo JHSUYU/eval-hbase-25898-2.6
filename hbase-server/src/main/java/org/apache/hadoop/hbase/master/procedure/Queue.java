@@ -22,7 +22,6 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.hadoop.hbase.procedure2.LockStatus;
 import org.apache.hadoop.hbase.procedure2.Procedure;
 import org.apache.hadoop.hbase.procedure2.ProcedureDeque;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.hadoop.hbase.util.AvlUtil.AvlLinkedNode;
 import org.apache.yetus.audience.InterfaceAudience;
 
@@ -37,8 +36,6 @@ abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<
   private final TKey key;
   private final int priority;
   private final ProcedureDeque runnables = new ProcedureDeque();
-
-  public ProcedureDeque runnables$dryrun = new ProcedureDeque();
   // Reference to status of lock on entity this queue represents.
   private final LockStatus lockStatus;
 
@@ -77,17 +74,6 @@ abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<
       runnables.addFirst(proc);
     } else {
       runnables.addLast(proc);
-    }
-  }
-
-  public void add$instrumentation(Procedure<?> proc, boolean addToFront) {
-
-    if (addToFront) {
-      runnables.isTainted = true;
-      runnables$dryrun.addFirst(proc);
-    } else {
-      runnables.isTainted = true;
-      runnables$dryrun.addLast(proc);
     }
   }
 

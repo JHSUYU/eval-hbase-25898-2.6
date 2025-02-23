@@ -683,18 +683,18 @@ public class TestHFileArchiving {
   public void testArchiveRegionTableAndRegionDirsNull() throws IOException {
     Path rootDir = UTIL.getDataTestDirOnTestFS("testCleaningRace");
     FileSystem fileSystem = UTIL.getTestFileSystem();
-    // Try to archive the file but with null regionDir, can't delete sourceFile
     Configuration conf = UTIL.getMiniHBaseCluster().getMaster().getConfiguration();
+    // Try to archive the file but with null regionDir, can't delete sourceFile
     assertFalse(HFileArchiver.archiveRegion(conf, fileSystem, rootDir, null, null));
   }
 
   @Test
   public void testArchiveRegionWithTableDirNull() throws IOException {
+    Configuration conf = UTIL.getMiniHBaseCluster().getMaster().getConfiguration();
     Path regionDir = new Path(
       CommonFSUtils.getTableDir(new Path("./"), TableName.valueOf(name.getMethodName())), "xyzabc");
     Path familyDir = new Path(regionDir, "rd");
     Path rootDir = UTIL.getDataTestDirOnTestFS("testCleaningRace");
-    Configuration conf = UTIL.getMiniHBaseCluster().getMaster().getConfiguration();
     Path file = new Path(familyDir, "1");
     Path sourceFile = new Path(rootDir, file);
     FileSystem fileSystem = UTIL.getTestFileSystem();
@@ -708,12 +708,12 @@ public class TestHFileArchiving {
 
   @Test
   public void testArchiveRegionWithRegionDirNull() throws IOException {
+    Configuration conf = UTIL.getMiniHBaseCluster().getMaster().getConfiguration();
     Path regionDir =
       new Path(CommonFSUtils.getTableDir(new Path("./"), TableName.valueOf(name.getMethodName())),
         "elgn4nf");
     Path familyDir = new Path(regionDir, "rdar");
     Path rootDir = UTIL.getDataTestDirOnTestFS("testCleaningRace");
-    Configuration conf = UTIL.getMiniHBaseCluster().getMaster().getConfiguration();
     Path file = new Path(familyDir, "2");
     Path sourceFile = new Path(rootDir, file);
     FileSystem fileSystem = UTIL.getTestFileSystem();

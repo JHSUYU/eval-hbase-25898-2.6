@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.io.hfile;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hbase.trace.TraceUtil.FAST_FORWARD_KEY;
 
 import java.lang.ref.WeakReference;
 import java.util.EnumMap;
@@ -28,17 +27,17 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
-import io.opentelemetry.api.baggage.Baggage;
-import io.opentelemetry.context.Context;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.HeapSize;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.hadoop.hbase.util.ClassSize;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -86,7 +85,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
  * bytes to free). It then uses the priority chunk sizes to evict fairly according to the relative
  * sizes and usage.
  */
-@InterfaceAudience.Private public class LruBlockCache implements FirstLevelBlockCache {
+@InterfaceAudience.Private
+public class LruBlockCache implements FirstLevelBlockCache {
 
   private static final Logger LOG = LoggerFactory.getLogger(LruBlockCache.class);
 
@@ -157,129 +157,80 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    */
   private transient final ConcurrentHashMap<BlockCacheKey, LruCachedBlock> map;
 
-  /**
-   * Eviction lock (locked when eviction in process)
-   */
+  /** Eviction lock (locked when eviction in process) */
   private transient final ReentrantLock evictionLock = new ReentrantLock(true);
 
   private final long maxBlockSize;
 
-  /**
-   * Volatile boolean to track if we are in an eviction process or not
-   */
+  /** Volatile boolean to track if we are in an eviction process or not */
   private volatile boolean evictionInProgress = false;
 
-  /**
-   * Eviction thread
-   */
+  /** Eviction thread */
   private transient final EvictionThread evictionThread;
 
-  /**
-   * Statistics thread schedule pool (for heavy debugging, could remove)
-   */
+  /** Statistics thread schedule pool (for heavy debugging, could remove) */
   private transient final ScheduledExecutorService scheduleThreadPool =
-    Executors.newScheduledThreadPool(1,
-      new ThreadFactoryBuilder().setNameFormat("LruBlockCacheStatsExecutor").setDaemon(true)
-        .build());
+    Executors.newScheduledThreadPool(1, new ThreadFactoryBuilder()
+      .setNameFormat("LruBlockCacheStatsExecutor").setDaemon(true).build());
 
-  /**
-   * Current size of cache
-   */
+  /** Current size of cache */
   private final AtomicLong size;
 
-  /**
-   * Current size of data blocks
-   */
+  /** Current size of data blocks */
   private final LongAdder dataBlockSize = new LongAdder();
 
-  /**
-   * Current size of index blocks
-   */
+  /** Current size of index blocks */
   private final LongAdder indexBlockSize = new LongAdder();
 
-  /**
-   * Current size of bloom blocks
-   */
+  /** Current size of bloom blocks */
   private final LongAdder bloomBlockSize = new LongAdder();
 
-  /**
-   * Current number of cached elements
-   */
+  /** Current number of cached elements */
   private final AtomicLong elements;
 
-  /**
-   * Current number of cached data block elements
-   */
+  /** Current number of cached data block elements */
   private final LongAdder dataBlockElements = new LongAdder();
 
-  /**
-   * Current number of cached index block elements
-   */
+  /** Current number of cached index block elements */
   private final LongAdder indexBlockElements = new LongAdder();
 
-  /**
-   * Current number of cached bloom block elements
-   */
+  /** Current number of cached bloom block elements */
   private final LongAdder bloomBlockElements = new LongAdder();
 
-  /**
-   * Cache access count (sequential ID)
-   */
+  /** Cache access count (sequential ID) */
   private final AtomicLong count;
 
-  /**
-   * hard capacity limit
-   */
+  /** hard capacity limit */
   private float hardCapacityLimitFactor;
 
-  /**
-   * Cache statistics
-   */
+  /** Cache statistics */
   private final CacheStats stats;
 
-  /**
-   * Maximum allowable size of cache (block put if size > max, evict)
-   */
+  /** Maximum allowable size of cache (block put if size > max, evict) */
   private long maxSize;
 
-  /**
-   * Approximate block size
-   */
+  /** Approximate block size */
   private long blockSize;
 
-  /**
-   * Acceptable size of cache (no evictions if size < acceptable)
-   */
+  /** Acceptable size of cache (no evictions if size < acceptable) */
   private float acceptableFactor;
 
-  /**
-   * Minimum threshold of cache (when evicting, evict until size < min)
-   */
+  /** Minimum threshold of cache (when evicting, evict until size < min) */
   private float minFactor;
 
-  /**
-   * Single access bucket size
-   */
+  /** Single access bucket size */
   private float singleFactor;
 
-  /**
-   * Multiple access bucket size
-   */
+  /** Multiple access bucket size */
   private float multiFactor;
 
-  /**
-   * In-memory bucket size
-   */
+  /** In-memory bucket size */
   private float memoryFactor;
 
-  /**
-   * Overhead of the structure itself
-   */
+  /** Overhead of the structure itself */
   private long overhead;
 
-  /**
-   * Whether in-memory hfile's data block has higher priority when evicting
-   */
+  /** Whether in-memory hfile's data block has higher priority when evicting */
   private boolean forceInMemory;
 
   /**
@@ -293,7 +244,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * fine).
    * <p>
    * All other factors will be calculated based on defaults specified in this class.
-   *
    * @param maxSize   maximum size of cache, in bytes
    * @param blockSize approximate size of each block, in bytes
    */
@@ -330,7 +280,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   /**
    * Configurable constructor. Use this constructor if not using defaults.
-   *
    * @param maxSize             maximum size of this cache, in bytes
    * @param blockSize           expected average size of blocks, in bytes
    * @param evictionThread      whether to run evictions in a bg thread or not
@@ -348,8 +297,10 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     float singleFactor, float multiFactor, float memoryFactor, float hardLimitFactor,
     boolean forceInMemory, long maxBlockSize) {
     this.maxBlockSize = maxBlockSize;
-    if (singleFactor + multiFactor + memoryFactor != 1 || singleFactor < 0 || multiFactor < 0
-      || memoryFactor < 0) {
+    if (
+      singleFactor + multiFactor + memoryFactor != 1 || singleFactor < 0 || multiFactor < 0
+        || memoryFactor < 0
+    ) {
       throw new IllegalArgumentException(
         "Single, multi, and memory factors " + " should be non-negative and total 1.0");
     }
@@ -386,14 +337,16 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       STAT_THREAD_PERIOD, TimeUnit.SECONDS);
   }
 
-  @Override public void setVictimCache(BlockCache victimCache) {
+  @Override
+  public void setVictimCache(BlockCache victimCache) {
     if (victimHandler != null) {
       throw new IllegalArgumentException("The victim cache has already been set");
     }
     victimHandler = requireNonNull(victimCache);
   }
 
-  @Override public void setMaxSize(long maxSize) {
+  @Override
+  public void setMaxSize(long maxSize) {
     this.maxSize = maxSize;
     if (this.size.get() > acceptableSize() && !evictionInProgress) {
       runEviction();
@@ -412,7 +365,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * 2. if cache the original heap block, we're sure that it won't be tracked in ByteBuffAllocator's
    * reservoir, if both RPC and LRUBlockCache release the block, then it can be garbage collected by
    * JVM, so need a retain here.
-   *
    * @param buf the original block
    * @return an block with an heap memory backend.
    */
@@ -434,12 +386,12 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * <p>
    * It is assumed this will NOT be called on an already cached block. In rare cases (HBASE-8547)
    * this can happen, for which we compare the buffer contents.
-   *
    * @param cacheKey block's cache key
    * @param buf      block buffer
    * @param inMemory if block is in-memory
    */
-  @Override public void cacheBlock(BlockCacheKey cacheKey, Cacheable buf, boolean inMemory) {
+  @Override
+  public void cacheBlock(BlockCacheKey cacheKey, Cacheable buf, boolean inMemory) {
     if (buf.heapSize() > maxBlockSize) {
       // If there are a lot of blocks that are too
       // big this can make the logs way too noisy.
@@ -500,17 +452,15 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    */
   private static void assertCounterSanity(long mapSize, long counterVal) {
     if (counterVal < 0) {
-      LOG.trace(
-        "counterVal overflow. Assertions unreliable. counterVal=" + counterVal + ", mapSize="
-          + mapSize);
+      LOG.trace("counterVal overflow. Assertions unreliable. counterVal=" + counterVal
+        + ", mapSize=" + mapSize);
       return;
     }
     if (mapSize < Integer.MAX_VALUE) {
       double pct_diff = Math.abs((((double) counterVal) / ((double) mapSize)) - 1.);
       if (pct_diff > 0.05) {
-        LOG.trace(
-          "delta between reported and actual size > 5%. counterVal=" + counterVal + ", mapSize="
-            + mapSize);
+        LOG.trace("delta between reported and actual size > 5%. counterVal=" + counterVal
+          + ", mapSize=" + mapSize);
       }
     }
   }
@@ -522,11 +472,11 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * sizing is based on heap size, so we should handle this in HBASE-22127. It will introduce an
    * switch whether make the LRU on-heap or not, if so we may need copy the memory to on-heap,
    * otherwise the caching size is based on off-heap.
-   *
    * @param cacheKey block's cache key
    * @param buf      block buffer
    */
-  @Override public void cacheBlock(BlockCacheKey cacheKey, Cacheable buf) {
+  @Override
+  public void cacheBlock(BlockCacheKey cacheKey, Cacheable buf) {
     cacheBlock(cacheKey, buf, false);
   }
 
@@ -554,7 +504,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   /**
    * Get the buffer of the block with the specified name.
-   *
    * @param cacheKey           block's cache key
    * @param caching            true if the caller caches blocks on cache misses
    * @param repeat             Whether this is a repeat lookup for the same block (used to avoid
@@ -562,7 +511,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * @param updateCacheMetrics Whether to update cache metrics or not
    * @return buffer of specified cache key, or null if not in cache
    */
-  @Override public Cacheable getBlock(BlockCacheKey cacheKey, boolean caching, boolean repeat,
+  @Override
+  public Cacheable getBlock(BlockCacheKey cacheKey, boolean caching, boolean repeat,
     boolean updateCacheMetrics) {
     // Note: 'map' must be a ConcurrentHashMap or the supplier may be invoked more than once.
     LruCachedBlock cb = map.computeIfPresent(cacheKey, (key, val) -> {
@@ -602,14 +552,15 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   /**
    * Whether the cache contains block with specified cacheKey
-   *
    * @return true if contains the block
    */
-  @Override public boolean containsBlock(BlockCacheKey cacheKey) {
+  @Override
+  public boolean containsBlock(BlockCacheKey cacheKey) {
     return map.containsKey(cacheKey);
   }
 
-  @Override public boolean evictBlock(BlockCacheKey cacheKey) {
+  @Override
+  public boolean evictBlock(BlockCacheKey cacheKey) {
     LruCachedBlock cb = map.get(cacheKey);
     return cb != null && evictBlock(cb, false) > 0;
   }
@@ -620,10 +571,10 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * log-access-time map.
    * <p>
    * This is used for evict-on-close to remove all blocks of a specific HFile.
-   *
    * @return the number of blocks evicted
    */
-  @Override public int evictBlocksByHfileName(String hfileName) {
+  @Override
+  public int evictBlocksByHfileName(String hfileName) {
     int numEvicted = 0;
     for (BlockCacheKey key : map.keySet()) {
       if (key.getHfileName().equals(hfileName)) {
@@ -641,7 +592,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
   /**
    * Evict the block, and it will be cached by the victim handler if exists &amp;&amp; block may be
    * read again later
-   *
    * @param evictedByEvictionProcess true if the given block is evicted by EvictionThread
    * @return the heap size of evicted block
    */
@@ -724,8 +674,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       long bytesToFree = currentSize - minSize();
 
       if (LOG.isTraceEnabled()) {
-        LOG.trace("Block cache LRU eviction started; Attempting to free " + StringUtils.byteDesc(
-          bytesToFree) + " of total=" + StringUtils.byteDesc(currentSize));
+        LOG.trace("Block cache LRU eviction started; Attempting to free "
+          + StringUtils.byteDesc(bytesToFree) + " of total=" + StringUtils.byteDesc(currentSize));
       }
 
       if (bytesToFree <= 0) {
@@ -754,8 +704,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
           }
         }
       }
-
-      //run
 
       long bytesFreed = 0;
       if (forceInMemory || memoryFactor > 0.999f) {
@@ -797,9 +745,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
           }
         }
       } else {
-
         PriorityQueue<BlockBucket> bucketQueue = new PriorityQueue<>(3);
-        LOG.info("Eviction Thread Priority bucket Queue"+Thread.currentThread().getId());
+
         bucketQueue.add(bucketSingle);
         bucketQueue.add(bucketMulti);
         bucketQueue.add(bucketMemory);
@@ -813,171 +760,29 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
             long bucketBytesToFree =
               Math.min(overflow, (bytesToFree - bytesFreed) / remainingBuckets);
             bytesFreed += bucket.free(bucketBytesToFree);
-            LOG.info("Eviction Thread, bucketBytesToFree "+bucketBytesToFree+ " bytesFreed "+bytesFreed);
           }
           remainingBuckets--;
         }
       }
-
-      long single = bucketSingle.totalSize();
-      long multi = bucketMulti.totalSize();
-      long memory = bucketMemory.totalSize();
-      LOG.info(
-        "Original Thread Block cache LRU eviction completed; " + "freed=" + StringUtils.byteDesc(bytesFreed)
-          + ", " + "total=" + StringUtils.byteDesc(this.size.get()) + ", " + "single="
-          + StringUtils.byteDesc(single) + ", " + "multi=" + StringUtils.byteDesc(multi) + ", "
-          + "memory=" + StringUtils.byteDesc(memory));
-//      if (LOG.isTraceEnabled()) {
-//        long single = bucketSingle.totalSize();
-//        long multi = bucketMulti.totalSize();
-//        long memory = bucketMemory.totalSize();
-//        LOG.trace(
-//          "Block cache LRU eviction completed; " + "freed=" + StringUtils.byteDesc(bytesFreed)
-//            + ", " + "total=" + StringUtils.byteDesc(this.size.get()) + ", " + "single="
-//            + StringUtils.byteDesc(single) + ", " + "multi=" + StringUtils.byteDesc(multi) + ", "
-//            + "memory=" + StringUtils.byteDesc(memory));
-//      }
-    } finally {
-      LOG.info("Eviction Thread Reached here"+Thread.currentThread().getId());
-      stats.evict();
-      evictionInProgress = false;
-      evictionLock.unlock();
-    }
-  }
-
-
-  void evict$shadow() {
-    // Ensure only one eviction at a time
-    if (!evictionLock.tryLock()) {
-      return;
-    }
-
-    try {
-      evictionInProgress = true;
-      long currentSize = this.size.get();
-      long bytesToFree = currentSize - minSize();
-
       if (LOG.isTraceEnabled()) {
-        LOG.trace("Block cache LRU eviction started; Attempting to free " + StringUtils.byteDesc(
-          bytesToFree) + " of total=" + StringUtils.byteDesc(currentSize));
+        long single = bucketSingle.totalSize();
+        long multi = bucketMulti.totalSize();
+        long memory = bucketMemory.totalSize();
+        LOG.trace(
+          "Block cache LRU eviction completed; " + "freed=" + StringUtils.byteDesc(bytesFreed)
+            + ", " + "total=" + StringUtils.byteDesc(this.size.get()) + ", " + "single="
+            + StringUtils.byteDesc(single) + ", " + "multi=" + StringUtils.byteDesc(multi) + ", "
+            + "memory=" + StringUtils.byteDesc(memory));
       }
-
-      if (bytesToFree <= 0) {
-        return;
-      }
-
-      // Instantiate priority buckets
-      BlockBucket bucketSingle = new BlockBucket("single", bytesToFree, blockSize, singleSize());
-      BlockBucket bucketMulti = new BlockBucket("multi", bytesToFree, blockSize, multiSize());
-      BlockBucket bucketMemory = new BlockBucket("memory", bytesToFree, blockSize, memorySize());
-
-      // Scan entire map putting into appropriate buckets
-      for (LruCachedBlock cachedBlock : map.values()) {
-        switch (cachedBlock.getPriority()) {
-          case SINGLE: {
-            bucketSingle.add(cachedBlock);
-            break;
-          }
-          case MULTI: {
-            bucketMulti.add(cachedBlock);
-            break;
-          }
-          case MEMORY: {
-            bucketMemory.add(cachedBlock);
-            break;
-          }
-        }
-      }
-
-
-      long bytesFreed = 0;
-      if (forceInMemory || memoryFactor > 0.999f) {
-        long s = bucketSingle.totalSize();
-        long m = bucketMulti.totalSize();
-        if (bytesToFree > (s + m)) {
-          // this means we need to evict blocks in memory bucket to make room,
-          // so the single and multi buckets will be emptied
-          bytesFreed = bucketSingle.free(s);
-          bytesFreed += bucketMulti.free(m);
-          if (LOG.isTraceEnabled()) {
-            LOG.trace(
-              "freed " + StringUtils.byteDesc(bytesFreed) + " from single and multi buckets");
-          }
-          bytesFreed += bucketMemory.free(bytesToFree - bytesFreed);
-          if (LOG.isTraceEnabled()) {
-            LOG.trace(
-              "freed " + StringUtils.byteDesc(bytesFreed) + " total from all three buckets ");
-          }
-        } else {
-          // this means no need to evict block in memory bucket,
-          // and we try best to make the ratio between single-bucket and
-          // multi-bucket is 1:2
-          long bytesRemain = s + m - bytesToFree;
-          if (3 * s <= bytesRemain) {
-            // single-bucket is small enough that no eviction happens for it
-            // hence all eviction goes from multi-bucket
-            bytesFreed = bucketMulti.free(bytesToFree);
-          } else if (3 * m <= 2 * bytesRemain) {
-            // multi-bucket is small enough that no eviction happens for it
-            // hence all eviction goes from single-bucket
-            bytesFreed = bucketSingle.free(bytesToFree);
-          } else {
-            // both buckets need to evict some blocks
-            bytesFreed = bucketSingle.free(s - bytesRemain / 3);
-            if (bytesFreed < bytesToFree) {
-              bytesFreed += bucketMulti.free(bytesToFree - bytesFreed);
-            }
-          }
-        }
-      } else {
-        PriorityQueue<BlockBucket> bucketQueue = new PriorityQueue<>(3);
-        LOG.info("Shadow Eviction Thread Priority bucket Queue"+Thread.currentThread().getId());
-        bucketQueue.add(bucketSingle);
-        bucketQueue.add(bucketMulti);
-        bucketQueue.add(bucketMemory);
-
-        int remainingBuckets = bucketQueue.size();
-
-        BlockBucket bucket;
-        while ((bucket = bucketQueue.poll()) != null) {
-          long overflow = bucket.overflow();
-          if (overflow > 0) {
-            long bucketBytesToFree =
-              Math.min(overflow, (bytesToFree - bytesFreed) / remainingBuckets);
-            bytesFreed += bucket.free(bucketBytesToFree);
-            LOG.info("Shadow Eviction Thread, bucketBytesToFree "+bucketBytesToFree+ " bytesFreed "+bytesFreed);
-          }
-          remainingBuckets--;
-        }
-      }
-
-      long single = bucketSingle.totalSize();
-      long multi = bucketMulti.totalSize();
-      long memory = bucketMemory.totalSize();
-      LOG.info(
-        "Shadow Block cache LRU eviction completed; " + "freed=" + StringUtils.byteDesc(bytesFreed)
-          + ", " + "total=" + StringUtils.byteDesc(this.size.get()) + ", " + "single="
-          + StringUtils.byteDesc(single) + ", " + "multi=" + StringUtils.byteDesc(multi) + ", "
-          + "memory=" + StringUtils.byteDesc(memory));
-//      if (LOG.isTraceEnabled()) {
-//        long single = bucketSingle.totalSize();
-//        long multi = bucketMulti.totalSize();
-//        long memory = bucketMemory.totalSize();
-//        LOG.trace(
-//          "Block cache LRU eviction completed; " + "freed=" + StringUtils.byteDesc(bytesFreed)
-//            + ", " + "total=" + StringUtils.byteDesc(this.size.get()) + ", " + "single="
-//            + StringUtils.byteDesc(single) + ", " + "multi=" + StringUtils.byteDesc(multi) + ", "
-//            + "memory=" + StringUtils.byteDesc(memory));
-//      }
     } finally {
-      LOG.info("ShadowEviction Thread Reached here"+Thread.currentThread().getId());
       stats.evict();
       evictionInProgress = false;
       evictionLock.unlock();
     }
   }
 
-  @Override public String toString() {
+  @Override
+  public String toString() {
     return MoreObjects.toStringHelper(this).add("blockCount", getBlockCount())
       .add("currentSize", StringUtils.byteDesc(getCurrentSize()))
       .add("freeSize", StringUtils.byteDesc(getFreeSize()))
@@ -1039,22 +844,26 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       return totalSize;
     }
 
-    @Override public int compareTo(BlockBucket that) {
+    @Override
+    public int compareTo(BlockBucket that) {
       return Long.compare(this.overflow(), that.overflow());
     }
 
-    @Override public boolean equals(Object that) {
+    @Override
+    public boolean equals(Object that) {
       if (that == null || !(that instanceof BlockBucket)) {
         return false;
       }
       return compareTo((BlockBucket) that) == 0;
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
       return Objects.hashCode(name, bucketSize, queue, totalSize);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
       return MoreObjects.toStringHelper(this).add("name", name)
         .add("totalSize", StringUtils.byteDesc(totalSize))
         .add("bucketSize", StringUtils.byteDesc(bucketSize)).toString();
@@ -1063,19 +872,21 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   /**
    * Get the maximum size of this cache.
-   *
    * @return max size in bytes
    */
 
-  @Override public long getMaxSize() {
+  @Override
+  public long getMaxSize() {
     return this.maxSize;
   }
 
-  @Override public long getCurrentSize() {
+  @Override
+  public long getCurrentSize() {
     return this.size.get();
   }
 
-  @Override public long getCurrentDataSize() {
+  @Override
+  public long getCurrentDataSize() {
     return this.dataBlockSize.sum();
   }
 
@@ -1087,19 +898,23 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     return this.bloomBlockSize.sum();
   }
 
-  @Override public long getFreeSize() {
+  @Override
+  public long getFreeSize() {
     return getMaxSize() - getCurrentSize();
   }
 
-  @Override public long size() {
+  @Override
+  public long size() {
     return getMaxSize();
   }
 
-  @Override public long getBlockCount() {
+  @Override
+  public long getBlockCount() {
     return this.elements.get();
   }
 
-  @Override public long getDataBlockCount() {
+  @Override
+  public long getDataBlockCount() {
     return this.dataBlockElements.sum();
   }
 
@@ -1113,39 +928,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   EvictionThread getEvictionThread() {
     return this.evictionThread;
-  }
-
-  public static void createShadowThread() {
-//    LOG.info("Creating shadow eviction thread");
-//    if(TraceUtil.forkCount > 0){
-//      return;
-//    }
-//
-//    TraceUtil.forkCount ++;
-
-
-    ExecutorService baseExecutor = new ThreadPoolExecutor(1,  // corePoolSize
-      1,  // maximumPoolSize
-      0L, // keepAliveTime
-      TimeUnit.MILLISECONDS,  // TimeUnit for keepAliveTime
-      new LinkedBlockingQueue<>()  // workQueue
-    );
-
-    Thread shadowThread = new ShadowEvictionThread();
-    Future<?> future = baseExecutor.submit(shadowThread);
-
-    try {
-      future.get(5,TimeUnit.SECONDS);
-    } catch (InterruptedException | ExecutionException e) {
-      e.printStackTrace();
-    } catch (TimeoutException e) {
-      LOG.info("Shadow thread initialization timed out, but will continue running in background");
-    } finally {
-      baseExecutor.shutdown();
-    }
-
-    LOG.info("Shadow eviction thread created");
-
   }
 
   /*
@@ -1166,7 +948,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       this.cache = new WeakReference<>(cache);
     }
 
-    @Override public void run() {
+    @Override
+    public void run() {
       enteringRun = true;
       while (this.go) {
         synchronized (this) {
@@ -1186,68 +969,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       }
     }
 
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "NN_NAKED_NOTIFY", justification = "This is what we want")
-    public void evict() {
-      synchronized (this) {
-        this.notifyAll();
-      }
-    }
-
-    synchronized void shutdown() {
-      this.go = false;
-      this.notifyAll();
-    }
-
-    public boolean isGo() {
-      return go;
-    }
-
-    /**
-     * Used for the test.
-     */
-    boolean isEnteringRun() {
-      return this.enteringRun;
-    }
-  }
-
-  static class ShadowEvictionThread extends Thread {
-
-    private WeakReference<LruBlockCache> cache;
-    private volatile boolean go = true;
-    // flag set after enter the run method, used for test
-    private boolean enteringRun = false;
-
-    public ShadowEvictionThread() {
-
-    }
-
-    public ShadowEvictionThread(LruBlockCache cache) {
-      super(Thread.currentThread().getName() + ".LruBlockCache.EvictionThread");
-      setDaemon(true);
-      this.cache = new WeakReference<>(cache);
-    }
-
-    @Override public void run() {
-      enteringRun = true;
-      while (this.go) {
-        synchronized (this) {
-          try {
-            this.wait(1000 * 10/* Don't wait for ever */);
-          } catch (InterruptedException e) {
-            LOG.warn("Interrupted eviction thread ", e);
-            Thread.currentThread().interrupt();
-          }
-        }
-        LruBlockCache cache = this.cache.get();
-        if (cache == null) {
-          this.go = false;
-          break;
-        }
-        cache.evict$shadow();
-      }
-    }
-
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "NN_NAKED_NOTIFY", justification = "This is what we want")
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "NN_NAKED_NOTIFY",
+        justification = "This is what we want")
     public void evict() {
       synchronized (this) {
         this.notifyAll();
@@ -1284,7 +1007,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
       this.lru = lru;
     }
 
-    @Override public void run() {
+    @Override
+    public void run() {
       lru.logStats();
     }
   }
@@ -1293,20 +1017,21 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     // Log size
     long usedSize = heapSize();
     long freeSize = maxSize - usedSize;
-    LruBlockCache.LOG.info(
-      "totalSize=" + StringUtils.byteDesc(maxSize) + ", " + "usedSize=" + StringUtils.byteDesc(
-        usedSize) + ", " + "freeSize=" + StringUtils.byteDesc(freeSize) + ", " + "max="
-        + StringUtils.byteDesc(this.maxSize) + ", " + "blockCount=" + getBlockCount() + ", "
-        + "accesses=" + stats.getRequestCount() + ", " + "hits=" + stats.getHitCount() + ", "
-        + "hitRatio=" + (stats.getHitCount() == 0 ?
-        "0" :
-        (StringUtils.formatPercent(stats.getHitRatio(), 2) + ", ")) + ", " + "cachingAccesses="
-        + stats.getRequestCachingCount() + ", " + "cachingHits=" + stats.getHitCachingCount() + ", "
-        + "cachingHitsRatio=" + (stats.getHitCachingCount() == 0 ?
-        "0," :
-        (StringUtils.formatPercent(stats.getHitCachingRatio(), 2) + ", ")) + "evictions="
-        + stats.getEvictionCount() + ", " + "evicted=" + stats.getEvictedCount() + ", "
-        + "evictedPerRun=" + stats.evictedPerEviction());
+    LruBlockCache.LOG.info("totalSize=" + StringUtils.byteDesc(maxSize) + ", " + "usedSize="
+      + StringUtils.byteDesc(usedSize) + ", " + "freeSize=" + StringUtils.byteDesc(freeSize) + ", "
+      + "max=" + StringUtils.byteDesc(this.maxSize) + ", " + "blockCount=" + getBlockCount() + ", "
+      + "accesses=" + stats.getRequestCount() + ", " + "hits=" + stats.getHitCount() + ", "
+      + "hitRatio="
+      + (stats.getHitCount() == 0
+        ? "0"
+        : (StringUtils.formatPercent(stats.getHitRatio(), 2) + ", "))
+      + ", " + "cachingAccesses=" + stats.getRequestCachingCount() + ", " + "cachingHits="
+      + stats.getHitCachingCount() + ", " + "cachingHitsRatio="
+      + (stats.getHitCachingCount() == 0
+        ? "0,"
+        : (StringUtils.formatPercent(stats.getHitCachingRatio(), 2) + ", "))
+      + "evictions=" + stats.getEvictionCount() + ", " + "evicted=" + stats.getEvictedCount() + ", "
+      + "evictedPerRun=" + stats.evictedPerEviction());
   }
 
   /**
@@ -1314,66 +1039,79 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
    * <p>
    * Includes: total accesses, hits, misses, evicted blocks, and runs of the eviction processes.
    */
-  @Override public CacheStats getStats() {
+  @Override
+  public CacheStats getStats() {
     return this.stats;
   }
 
   public final static long CACHE_FIXED_OVERHEAD =
     ClassSize.estimateBase(LruBlockCache.class, false);
 
-  @Override public long heapSize() {
+  @Override
+  public long heapSize() {
     return getCurrentSize();
   }
 
   private static long calculateOverhead(long maxSize, long blockSize, int concurrency) {
     // FindBugs ICAST_INTEGER_MULTIPLY_CAST_TO_LONG
-    return CACHE_FIXED_OVERHEAD + ClassSize.CONCURRENT_HASHMAP + (
-      (long) Math.ceil(maxSize * 1.2 / blockSize) * ClassSize.CONCURRENT_HASHMAP_ENTRY) + (
-      (long) concurrency * ClassSize.CONCURRENT_HASHMAP_SEGMENT);
+    return CACHE_FIXED_OVERHEAD + ClassSize.CONCURRENT_HASHMAP
+      + ((long) Math.ceil(maxSize * 1.2 / blockSize) * ClassSize.CONCURRENT_HASHMAP_ENTRY)
+      + ((long) concurrency * ClassSize.CONCURRENT_HASHMAP_SEGMENT);
   }
 
-  @Override public Iterator<CachedBlock> iterator() {
+  @Override
+  public Iterator<CachedBlock> iterator() {
     final Iterator<LruCachedBlock> iterator = map.values().iterator();
 
     return new Iterator<CachedBlock>() {
       private final long now = System.nanoTime();
 
-      @Override public boolean hasNext() {
+      @Override
+      public boolean hasNext() {
         return iterator.hasNext();
       }
 
-      @Override public CachedBlock next() {
+      @Override
+      public CachedBlock next() {
         final LruCachedBlock b = iterator.next();
         return new CachedBlock() {
-          @Override public String toString() {
+          @Override
+          public String toString() {
             return BlockCacheUtil.toString(this, now);
           }
 
-          @Override public BlockPriority getBlockPriority() {
+          @Override
+          public BlockPriority getBlockPriority() {
             return b.getPriority();
           }
 
-          @Override public BlockType getBlockType() {
+          @Override
+          public BlockType getBlockType() {
             return b.getBuffer().getBlockType();
           }
 
-          @Override public long getOffset() {
+          @Override
+          public long getOffset() {
             return b.getCacheKey().getOffset();
           }
 
-          @Override public long getSize() {
+          @Override
+          public long getSize() {
             return b.getBuffer().heapSize();
           }
 
-          @Override public long getCachedTime() {
+          @Override
+          public long getCachedTime() {
             return b.getCachedTime();
           }
 
-          @Override public String getFilename() {
+          @Override
+          public String getFilename() {
             return b.getCacheKey().getHfileName();
           }
 
-          @Override public int compareTo(CachedBlock other) {
+          @Override
+          public int compareTo(CachedBlock other) {
             int diff = this.getFilename().compareTo(other.getFilename());
             if (diff != 0) {
               return diff;
@@ -1388,11 +1126,13 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
             return Long.compare(other.getCachedTime(), this.getCachedTime());
           }
 
-          @Override public int hashCode() {
+          @Override
+          public int hashCode() {
             return b.hashCode();
           }
 
-          @Override public boolean equals(Object obj) {
+          @Override
+          public boolean equals(Object obj) {
             if (obj instanceof CachedBlock) {
               CachedBlock cb = (CachedBlock) obj;
               return compareTo(cb) == 0;
@@ -1403,7 +1143,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
         };
       }
 
-      @Override public void remove() {
+      @Override
+      public void remove() {
         throw new UnsupportedOperationException();
       }
     };
@@ -1431,7 +1172,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     return (long) Math.floor(this.maxSize * this.memoryFactor * this.minFactor);
   }
 
-  @Override public void shutdown() {
+  @Override
+  public void shutdown() {
     if (victimHandler != null) {
       victimHandler.shutdown();
     }
@@ -1455,9 +1197,7 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     this.evictionThread.shutdown();
   }
 
-  /**
-   * Clears the cache. Used in tests.
-   */
+  /** Clears the cache. Used in tests. */
   public void clearCache() {
     this.map.clear();
     this.elements.set(0);
@@ -1465,7 +1205,6 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
 
   /**
    * Used in testing. May be very inefficient.
-   *
    * @return the set of cached file names
    */
   SortedSet<String> getCachedFileNamesForTest() {
@@ -1490,7 +1229,8 @@ import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFacto
     return map;
   }
 
-  @Override public BlockCache[] getBlockCaches() {
+  @Override
+  public BlockCache[] getBlockCaches() {
     if (victimHandler != null) {
       return new BlockCache[] { this, this.victimHandler };
     }

@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
@@ -33,15 +32,8 @@ import org.apache.yetus.audience.InterfaceStability;
 public class SimpleProcedureScheduler extends AbstractProcedureScheduler {
   private final ProcedureDeque runnables = new ProcedureDeque();
 
-  private final ProcedureDeque runnables$dryrun = new ProcedureDeque();
-
   @Override
   protected void enqueue(final Procedure procedure, final boolean addFront) {
-    if(TraceUtil.isDryRun()){
-      enqueue$instrumentation(procedure, addFront);
-      return;
-    }
-    System.out.println("enqueue.procedure = " + procedure);
     if (addFront) {
       runnables.addFirst(procedure);
     } else {
@@ -49,26 +41,9 @@ public class SimpleProcedureScheduler extends AbstractProcedureScheduler {
     }
   }
 
-  protected void enqueue$instrumentation(final Procedure procedure, final boolean addFront) {
-    if (addFront) {
-      runnables$dryrun.addFirst(procedure);
-      runnables.isTainted = true;
-    } else {
-      runnables$dryrun.addLast(procedure);
-      runnables.isTainted = true;
-    }
-  }
-
   @Override
   protected Procedure dequeue() {
-    if(TraceUtil.isDryRun()){
-      return dequeue$instrumentation();
-    }
     return runnables.poll();
-  }
-
-  protected Procedure dequeue$instrumentation() {
-    return runnables$dryrun.poll();
   }
 
   @Override
@@ -88,17 +63,7 @@ public class SimpleProcedureScheduler extends AbstractProcedureScheduler {
 
   @Override
   public boolean queueHasRunnables() {
-    System.out.println("enter queueHasRunnables");
-    int res = runnables.size();
-    System.out.println("queueHasRunnables.size() = " + res);
-    return res>0;
-  }
-
-  public boolean queueHasRunnables$shadow(){
-    System.out.println("enter queueHasRunnables$shadow");
-    int res = runnables$dryrun.size();
-    System.out.println("queueHasRunnables.size() = " + res);
-    return res>0;
+    return runnables.size() > 0;
   }
 
   @Override

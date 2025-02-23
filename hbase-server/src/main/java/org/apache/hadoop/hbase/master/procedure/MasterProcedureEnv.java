@@ -30,7 +30,6 @@ import org.apache.hadoop.hbase.master.assignment.AssignmentManager;
 import org.apache.hadoop.hbase.master.replication.ReplicationPeerManager;
 import org.apache.hadoop.hbase.procedure2.Procedure;
 import org.apache.hadoop.hbase.procedure2.ProcedureEvent;
-import org.apache.hadoop.hbase.procedure2.SimpleProcedureScheduler;
 import org.apache.hadoop.hbase.procedure2.store.LeaseRecovery;
 import org.apache.hadoop.hbase.security.Superusers;
 import org.apache.hadoop.hbase.security.User;
@@ -72,14 +71,8 @@ public class MasterProcedureEnv implements ConfigurationObserver {
   }
 
   private final RSProcedureDispatcher remoteDispatcher;
-  public SimpleProcedureScheduler procSched$instrumented = new SimpleProcedureScheduler();
-
   private final MasterProcedureScheduler procSched;
   private final MasterServices master;
-
-  public MasterProcedureEnv(final MasterServices master) {
-    this(master, new RSProcedureDispatcher(master));
-  }
 
   public MasterProcedureEnv(final MasterServices master,
     final RSProcedureDispatcher remoteDispatcher) {

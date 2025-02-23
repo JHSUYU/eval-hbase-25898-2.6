@@ -26,6 +26,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
@@ -115,7 +117,7 @@ public class HFileArchiver {
    *         operations could not complete.
    * @throws IOException if the request cannot be completed
    */
-  public static boolean archiveRegion(final Configuration conf, FileSystem fs, Path rootdir,
+  public static boolean archiveRegion(Configuration conf, FileSystem fs, Path rootdir,
     Path tableDir, Path regionDir) throws IOException {
     // otherwise, we archive the files
     // make sure we can archive
@@ -207,8 +209,8 @@ public class HFileArchiver {
   private static synchronized ThreadPoolExecutor getArchiveExecutor(final Configuration conf) {
     if (archiveExecutor == null) {
       int maxThreads = conf.getInt("hbase.hfilearchiver.thread.pool.max", 8);
-      archiveExecutor =
-        Threads.getBoundedCachedThreadPool(maxThreads, 30L, TimeUnit.SECONDS, getThreadFactory());
+      archiveExecutor = Threads.getBoundedCachedThreadPool(maxThreads, 30L, TimeUnit.SECONDS,
+        getThreadFactory("HFileArchiver"));
 
       // Shutdown this ThreadPool in a shutdown hook
       Runtime.getRuntime().addShutdownHook(new Thread(() -> archiveExecutor.shutdown()));
@@ -220,13 +222,13 @@ public class HFileArchiver {
   // The difference from Threads.getNamedThreadFactory() is that it doesn't fix ThreadGroup for
   // new threads. If we use Threads.getNamedThreadFactory(), we will face ThreadGroup related
   // issues in some tests.
-  private static ThreadFactory getThreadFactory() {
+  private static ThreadFactory getThreadFactory(String archiverName) {
     return new ThreadFactory() {
       final AtomicInteger threadNumber = new AtomicInteger(1);
 
       @Override
       public Thread newThread(Runnable r) {
-        final String name = "HFileArchiver-" + threadNumber.getAndIncrement();
+        final String name = archiverName + "-" + threadNumber.getAndIncrement();
         Thread t = new Thread(r, name);
         t.setDaemon(true);
         return t;
@@ -260,8 +262,8 @@ public class HFileArchiver {
    * @param family    the family hosting the store files
    * @throws IOException if the files could not be correctly disposed.
    */
-  public static void archiveFamilyByFamilyDir(FileSystem fs, final Configuration conf,
-    RegionInfo parent, Path familyDir, byte[] family) throws IOException {
+  public static void archiveFamilyByFamilyDir(FileSystem fs, Configuration conf, RegionInfo parent,
+    Path familyDir, byte[] family) throws IOException {
     FileStatus[] storeFiles = CommonFSUtils.listStatus(fs, familyDir);
     if (storeFiles == null) {
       LOG.debug("No files to dispose of in {}, family={}", parent.getRegionNameAsString(),
@@ -295,9 +297,8 @@ public class HFileArchiver {
    *                       attempted; otherwise likely to cause an {@link IOException}
    * @throws IOException if the files could not be correctly disposed.
    */
-  public static void archiveStoreFiles(final Configuration conf, FileSystem fs,
-    RegionInfo regionInfo, Path tableDir, byte[] family, Collection<HStoreFile> compactedFiles)
-    throws IOException {
+  public static void archiveStoreFiles(Configuration conf, FileSystem fs, RegionInfo regionInfo,
+    Path tableDir, byte[] family, Collection<HStoreFile> compactedFiles) throws IOException {
     Path storeArchiveDir = HFileArchiveUtil.getStoreArchivePath(conf, regionInfo, tableDir, family);
     archive(conf, fs, regionInfo, family, compactedFiles, storeArchiveDir);
   }
@@ -333,7 +334,7 @@ public class HFileArchiver {
     archive(conf, fs, regionInfo, family, replayedEdits, path);
   }
 
-  private static void archive(final Configuration conf, FileSystem fs, RegionInfo regionInfo,
+  private static void archive(Configuration conf, FileSystem fs, RegionInfo regionInfo,
     byte[] family, Collection<HStoreFile> compactedFiles, Path storeArchiveDir) throws IOException {
     // sometimes in testing, we don't have rss, so we need to check for that
     if (fs == null) {
@@ -422,73 +423,97 @@ public class HFileArchiver {
    * @return the list of failed to archive files.
    * @throws IOException if an unexpected file operation exception occurred
    */
-  private static List<File> resolveAndArchive(final Configuration conf, FileSystem fs,
+  private static List<File> resolveAndArchive(Configuration conf, FileSystem fs,
     Path baseArchiveDir, Collection<File> toArchive, long start) throws IOException {
-    // short circuit if no files to move
+    // Early exit if no files to archive
     if (toArchive.isEmpty()) {
+      LOG.trace("No files to archive, returning an empty list.");
       return Collections.emptyList();
     }
 
-    LOG.trace("Moving files to the archive directory {}", baseArchiveDir);
+    LOG.trace("Preparing to archive files into directory: {}", baseArchiveDir);
 
-    // make sure the archive directory exists
-    if (!fs.exists(baseArchiveDir)) {
-      if (!fs.mkdirs(baseArchiveDir)) {
-        throw new IOException("Failed to create the archive directory:" + baseArchiveDir
-          + ", quitting archive attempt.");
-      }
-      LOG.trace("Created archive directory {}", baseArchiveDir);
-    }
+    // Ensure the archive directory exists
+    ensureArchiveDirectoryExists(fs, baseArchiveDir);
 
-    List<File> failures = Collections.synchronizedList(new ArrayList<>());
+    // Thread-safe collection for storing failures
+    Queue<File> failures = new ConcurrentLinkedQueue<>();
     String startTime = Long.toString(start);
+
+    // Separate files and directories for processing
     List<File> filesOnly = new ArrayList<>();
     for (File file : toArchive) {
-      try {
-        if (!file.isFile()) {
-          // if its a directory and we need to archive all files
-          LOG.trace("{} is a directory, archiving children files", file);
-          // so we add the directory name to the one base archive
-          Path parentArchiveDir = new Path(baseArchiveDir, file.getName());
-          // and then get all the files from that directory and attempt to
-          // archive those too
-          Collection<File> children = file.getChildren();
-          failures.addAll(resolveAndArchive(conf, fs, parentArchiveDir, children, start));
-        } else {
-          filesOnly.add(file);
-        }
-      } catch (IOException e) {
-        LOG.warn("Failed to archive {}", file, e);
-        failures.add(file);
+      if (file.isFile()) {
+        filesOnly.add(file);
+      } else {
+        handleDirectory(conf, fs, baseArchiveDir, failures, file, start);
       }
-    }
-    Map<File, Future<Boolean>> futures = new HashMap<>();
-    // In current baseDir all files will be processed concurrently
-    for (File file : filesOnly) {
-      LOG.trace("Archiving {}", file);
-      Future<Boolean> archiveTask = getArchiveExecutor(conf)
-        .submit(() -> resolveAndArchiveFile(baseArchiveDir, file, startTime));
-      futures.put(file, archiveTask);
     }
 
-    for (Map.Entry<File, Future<Boolean>> fileFutureEntry : futures.entrySet()) {
-      try {
-        boolean fileCleaned = fileFutureEntry.getValue().get();
-        if (!fileCleaned) {
-          LOG.warn("Couldn't archive {} into backup directory: {}", fileFutureEntry.getKey(),
-            baseArchiveDir);
-          failures.add(fileFutureEntry.getKey());
-        }
-      } catch (InterruptedException e) {
-        LOG.warn("HFileArchive Cleanup thread was interrupted");
-        failures.add(fileFutureEntry.getKey());
-      } catch (ExecutionException e) {
-        // this is IOException
-        LOG.warn("Failed to archive {}", fileFutureEntry.getKey(), e);
-        failures.add(fileFutureEntry.getKey());
-      }
+    // Archive files concurrently
+    archiveFilesConcurrently(conf, baseArchiveDir, filesOnly, failures, startTime);
+
+    return new ArrayList<>(failures); // Convert to a List for the return value
+  }
+
+  private static void ensureArchiveDirectoryExists(FileSystem fs, Path baseArchiveDir)
+    throws IOException {
+    if (!fs.exists(baseArchiveDir) && !fs.mkdirs(baseArchiveDir)) {
+      throw new IOException("Failed to create the archive directory: " + baseArchiveDir);
     }
-    return failures;
+    LOG.trace("Archive directory ready: {}", baseArchiveDir);
+  }
+
+  private static void handleDirectory(Configuration conf, FileSystem fs, Path baseArchiveDir,
+    Queue<File> failures, File directory, long start) {
+    LOG.trace("Processing directory: {}, archiving its children.", directory);
+    Path subArchiveDir = new Path(baseArchiveDir, directory.getName());
+
+    try {
+      Collection<File> children = directory.getChildren();
+      failures.addAll(resolveAndArchive(conf, fs, subArchiveDir, children, start));
+    } catch (IOException e) {
+      LOG.warn("Failed to archive directory: {}", directory, e);
+      failures.add(directory);
+    }
+  }
+
+  private static void archiveFilesConcurrently(Configuration conf, Path baseArchiveDir,
+    List<File> files, Queue<File> failures, String startTime) {
+    LOG.trace("Archiving {} files concurrently into directory: {}", files.size(), baseArchiveDir);
+    Map<File, Future<Boolean>> futureMap = new HashMap<>();
+    // Submit file archiving tasks
+    // default is 16 which comes equal hbase.hstore.blockingStoreFiles default value
+    int maxThreads = conf.getInt("hbase.hfilearchiver.per.region.thread.pool.max", 16);
+    ThreadPoolExecutor hfilesArchiveExecutor = Threads.getBoundedCachedThreadPool(maxThreads, 30L,
+      TimeUnit.SECONDS, getThreadFactory("HFileArchiverPerRegion-"));
+    try {
+      for (File file : files) {
+        Future<Boolean> future = hfilesArchiveExecutor
+          .submit(() -> resolveAndArchiveFile(baseArchiveDir, file, startTime));
+        futureMap.put(file, future);
+      }
+
+      // Process results of each task
+      for (Map.Entry<File, Future<Boolean>> entry : futureMap.entrySet()) {
+        File file = entry.getKey();
+        try {
+          if (!entry.getValue().get()) {
+            LOG.warn("Failed to archive file: {} into directory: {}", file, baseArchiveDir);
+            failures.add(file);
+          }
+        } catch (InterruptedException e) {
+          LOG.error("Archiving interrupted for file: {}", file, e);
+          Thread.currentThread().interrupt(); // Restore interrupt status
+          failures.add(file);
+        } catch (ExecutionException e) {
+          LOG.error("Archiving failed for file: {}", file, e);
+          failures.add(file);
+        }
+      }
+    } finally {
+      hfilesArchiveExecutor.shutdown();
+    }
   }
 
   /**

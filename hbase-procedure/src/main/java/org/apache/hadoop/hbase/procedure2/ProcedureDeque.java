@@ -30,6 +30,4 @@ public class ProcedureDeque extends ArrayDeque<Procedure> {
     // Default is 16 for a list that is rarely used; elements will resize if too small.
     super(2);
   }
-
-  public boolean isTainted;
 }

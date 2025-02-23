@@ -38,8 +38,6 @@ import org.apache.hadoop.hbase.procedure2.ProcedureStateSerializer;
 import org.apache.hadoop.hbase.procedure2.ProcedureSuspendedException;
 import org.apache.hadoop.hbase.procedure2.ProcedureUtil;
 import org.apache.hadoop.hbase.procedure2.ProcedureYieldException;
-import org.apache.hadoop.hbase.trace.DryRunTraceUtil;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -194,19 +192,9 @@ public class TransitRegionStateProcedure
     }
     LOG.info("Starting {}; {}; forceNewPlan={}, retain={}", this, regionNode.toShortString(),
       forceNewPlan, retain);
-    LOG.info("Queueing assign for {}; {}; forceNewPlan={}, retain={}", this,
-      regionNode.toShortString(), forceNewPlan, retain);
-    if(this.isDryRun){
-      DryRunTraceUtil.createDryRunBaggage();
-    }
     env.getAssignmentManager().queueAssign(regionNode);
-    DryRunTraceUtil.removeDryRunBaggage();
-    LOG.info("Finished queueing assign for {}; {}; forceNewPlan={}, retain={}", this,
-      regionNode.toShortString(), forceNewPlan, retain);
     setNextState(RegionStateTransitionState.REGION_STATE_TRANSITION_OPEN);
     if (regionNode.getProcedureEvent().suspendIfNotReady(this)) {
-      LOG.info("Suspend {}; {}; forceNewPlan={}, retain={}", this, regionNode.toShortString(),
-        forceNewPlan, retain);
       throw new ProcedureSuspendedException();
     }
   }
@@ -348,7 +336,6 @@ public class TransitRegionStateProcedure
   protected Flow executeFromState(MasterProcedureEnv env, RegionStateTransitionState state)
     throws ProcedureSuspendedException, ProcedureYieldException, InterruptedException {
     RegionStateNode regionNode = getRegionStateNode(env);
-    LOG.info("Execute {}; {}; state={}", this, regionNode.toShortString(), state);
     try {
       switch (state) {
         case REGION_STATE_TRANSITION_GET_ASSIGN_CANDIDATE:

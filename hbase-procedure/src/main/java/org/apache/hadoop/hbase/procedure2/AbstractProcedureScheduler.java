@@ -23,7 +23,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +99,6 @@ public abstract class AbstractProcedureScheduler implements ProcedureScheduler {
         if (LOG.isTraceEnabled()) {
           LOG.trace("Wake " + procedure);
         }
-        LOG.info("Wake " + procedure + "isDryRun is " + TraceUtil.isDryRun());
         push(procedure, /* addFront= */ true, /* notify= */false);
         count++;
       }

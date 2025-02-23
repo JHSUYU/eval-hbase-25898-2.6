@@ -45,7 +45,6 @@ import org.apache.hadoop.hbase.procedure2.ProcedureStateSerializer;
 import org.apache.hadoop.hbase.procedure2.ProcedureSuspendedException;
 import org.apache.hadoop.hbase.procedure2.ProcedureYieldException;
 import org.apache.hadoop.hbase.procedure2.StateMachineProcedure;
-import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,7 +133,6 @@ public class ServerCrashProcedure extends
   @Override
   protected Flow executeFromState(MasterProcedureEnv env, ServerCrashState state)
     throws ProcedureSuspendedException, ProcedureYieldException {
-    LOG.info("FL, executeFromState, isDryRun is {}, states is {}", TraceUtil.isDryRun(), state);
     final MasterServices services = env.getMasterServices();
     final AssignmentManager am = env.getAssignmentManager();
     updateProgress(true);
@@ -192,7 +190,6 @@ public class ServerCrashProcedure extends
           break;
         case SERVER_CRASH_ASSIGN_META:
           assignRegions(env, Arrays.asList(RegionInfoBuilder.FIRST_META_REGIONINFO));
-          LOG.info("Assigned meta {}", this);
           setNextState(ServerCrashState.SERVER_CRASH_GET_REGIONS);
           break;
         case SERVER_CRASH_GET_REGIONS:
@@ -554,8 +551,6 @@ public class ServerCrashProcedure extends
         }
         TransitRegionStateProcedure proc =
           TransitRegionStateProcedure.assign(env, region, !retainAssignment, null);
-        LOG.info("FL, assignRegions, isDryRun is {}, proc is {}", TraceUtil.isDryRun(), proc);
-        proc.isDryRun = this.isDryRun;
         regionNode.setProcedure(proc);
         addChildProcedure(proc);
       } finally {

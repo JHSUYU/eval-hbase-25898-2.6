@@ -132,7 +132,6 @@ public class TestClaimReplicationQueue extends TestReplicationBase {
 
   @Test
   public void testClaim() throws Exception {
-
     // disable the peers
     hbaseAdmin.disableReplicationPeer(PEER_ID2);
     hbaseAdmin.disableReplicationPeer(PEER_ID3);
@@ -155,32 +154,14 @@ public class TestClaimReplicationQueue extends TestReplicationBase {
 
     hbaseAdmin.enableReplicationPeer(PEER_ID2);
     hbaseAdmin.enableReplicationPeer(PEER_ID3);
-    System.out.println("Test, TestClaimReplicationQueue, testClaim, 0");
 
     EMPTY = false;
     // wait until the SCP finished, ClaimReplicationQueuesProcedure is a sub procedure of SCP
     UTIL1.waitFor(30000, () -> master.getProcedures().stream()
       .filter(p -> p instanceof ServerCrashProcedure).allMatch(Procedure::isSuccess));
 
-    System.out.println("Test, TestClaimReplicationQueue, testClaim, 1");
-
     // we should get all the data in the target cluster
     waitForReplication(htable2, count1, NB_RETRIES);
-
-    System.out.println("Test, TestClaimReplicationQueue, testClaim, 2");
     waitForReplication(table4, count2, NB_RETRIES);
-
   }
-
-  @Test  // 记得加上测试注解
-  public void printClasspath() {
-    System.out.println("Classpath: ");
-    String classpathStr = System.getProperty("java.class.path");
-    String[] classpathEntries = classpathStr.split(System.getProperty("path.separator"));
-    for (String entry : classpathEntries) {
-      System.out.println(entry);
-    }
-  }
-
-
 }

@@ -52,7 +52,6 @@ import org.apache.hadoop.hbase.procedure2.Procedure;
 import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.TraceUtil;
 import org.apache.hadoop.hbase.zookeeper.ZKUtil;
 import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.hadoop.hbase.zookeeper.ZNodePaths;
@@ -947,7 +946,6 @@ public class ServerManager {
     // Loop through the draining server list and remove them from the server list
     final List<ServerName> drainingServersCopy = getDrainingServersList();
     destServers.removeAll(drainingServersCopy);
-    LOG.info("destServers=" + destServers + ", drainingServers=" + drainingServersCopy + "isDryRun is " + TraceUtil.isDryRun());
 
     return new ArrayList<>(destServers);
   }
