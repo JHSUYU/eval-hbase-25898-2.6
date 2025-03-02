@@ -24,6 +24,7 @@ import org.apache.hadoop.hbase.procedure2.Procedure;
 import org.apache.hadoop.hbase.procedure2.ProcedureDeque;
 import org.apache.hadoop.hbase.util.AvlUtil.AvlLinkedNode;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 
 @InterfaceAudience.Private
 abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<TKey>> {
@@ -36,6 +37,8 @@ abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<
   private final TKey key;
   private final int priority;
   private final ProcedureDeque runnables = new ProcedureDeque();
+
+  public ProcedureDeque runnables$dryrun = new ProcedureDeque();
   // Reference to status of lock on entity this queue represents.
   private final LockStatus lockStatus;
 
@@ -77,6 +80,14 @@ abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<
     }
   }
 
+    public void add$instrumentation(Procedure<?> proc, boolean addToFront) {
+        if (addToFront) {
+            runnables$dryrun.addFirst(proc);
+        } else {
+            runnables$dryrun.addLast(proc);
+        }
+    }
+
   public Procedure<?> peek() {
     return runnables.peek();
   }
@@ -84,6 +95,11 @@ abstract class Queue<TKey extends Comparable<TKey>> extends AvlLinkedNode<Queue<
   public Procedure<?> poll() {
     return runnables.poll();
   }
+
+    public Procedure<?> poll$instrumentation() {
+
+        return runnables$dryrun.poll();
+    }
 
   public boolean isEmpty() {
     return runnables.isEmpty();

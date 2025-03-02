@@ -36,6 +36,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.opentelemetry.context.Scope;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetricsBuilder;
@@ -126,6 +128,7 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.wal.AbstractFSWALProvider;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.KeeperException;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1694,20 +1697,23 @@ public class MasterRpcServices extends RSRpcServices
   @Override
   public ReportRegionStateTransitionResponse reportRegionStateTransition(RpcController c,
     ReportRegionStateTransitionRequest req) throws ServiceException {
-    try {
-      master.checkServiceStarted();
-      for (RegionServerStatusProtos.RegionStateTransition transition : req.getTransitionList()) {
-        long procId =
-          transition.getProcIdCount() > 0 ? transition.getProcId(0) : Procedure.NO_PROC_ID;
-        // -1 is less than any possible MasterActiveCode
-        long initiatingMasterActiveTime = transition.hasInitiatingMasterActiveTime()
-          ? transition.getInitiatingMasterActiveTime()
-          : -1;
-        throwOnOldMaster(procId, initiatingMasterActiveTime);
-      }
-      return master.getAssignmentManager().reportRegionStateTransition(req);
-    } catch (IOException ioe) {
-      throw new ServiceException(ioe);
+    LOG.info("Master reportRegionStateTransition isDryRun is "+ PilotUtil.isDryRun());
+    try(Scope scope = PilotUtil.getDryRunTraceScope(PilotUtil.isDryRun())) {
+        try {
+            master.checkServiceStarted();
+            for (RegionServerStatusProtos.RegionStateTransition transition : req.getTransitionList()) {
+                long procId =
+                        transition.getProcIdCount() > 0 ? transition.getProcId(0) : Procedure.NO_PROC_ID;
+                // -1 is less than any possible MasterActiveCode
+                long initiatingMasterActiveTime = transition.hasInitiatingMasterActiveTime()
+                        ? transition.getInitiatingMasterActiveTime()
+                        : -1;
+                throwOnOldMaster(procId, initiatingMasterActiveTime);
+            }
+            return master.getAssignmentManager().reportRegionStateTransition(req);
+        } catch (IOException ioe) {
+            throw new ServiceException(ioe);
+        }
     }
   }
 

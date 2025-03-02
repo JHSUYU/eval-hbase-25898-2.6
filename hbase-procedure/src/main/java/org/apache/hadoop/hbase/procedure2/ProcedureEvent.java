@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.procedure2;
 
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,6 +114,13 @@ public class ProcedureEvent<T> {
     // wakeProcedure adds to the front of queue, so we start from last in the
     // waitQueue' queue, so that the procedure which was added first goes in the front for
     // the scheduler queue.
+    //print stack trace
+    new Throwable().printStackTrace();
+    LOG.info("wakeInternal isDryRun isDryRun() " + PilotUtil.isDryRun());
+    //iterate and print suspendedProcedures
+    for (Procedure<?> proc : suspendedProcedures) {
+      LOG.info("suspendedProcedures " + proc);
+    }
     procedureScheduler.addFront(suspendedProcedures.descendingIterator());
     suspendedProcedures.clear();
   }

@@ -575,10 +575,17 @@ public class RSProcedureDispatcher extends RemoteProcedureDispatcher<MasterProce
       super(remoteProcedure, regionInfo, procId, initiatingMasterActiveTime);
     }
 
+      public RegionOpenOperation(RemoteProcedure remoteProcedure, RegionInfo regionInfo, long procId,
+                                 long initiatingMasterActiveTime, boolean isDryRun) {
+          super(remoteProcedure, regionInfo, procId, initiatingMasterActiveTime);
+          this.isDryRun = isDryRun;
+      }
+
     public OpenRegionRequest.RegionOpenInfo
       buildRegionOpenInfoRequest(final MasterProcedureEnv env) {
+      System.out.println("buildRegionOpenInfoRequest isDryRun is " + this.isDryRun);
       return RequestConverter.buildRegionOpenInfo(regionInfo,
-        env.getAssignmentManager().getFavoredNodes(regionInfo), procId);
+        env.getAssignmentManager().getFavoredNodes(regionInfo), procId, this.isDryRun);
     }
   }
 

@@ -225,6 +225,8 @@ public abstract class RemoteProcedureDispatcher<TEnv, TRemote extends Comparable
     // active time of the master that sent this request, used for fencing
     private final long initiatingMasterActiveTime;
 
+    public boolean isDryRun = false;
+
     protected RemoteOperation(final RemoteProcedure remoteProcedure,
       long initiatingMasterActiveTime) {
       this.remoteProcedure = remoteProcedure;

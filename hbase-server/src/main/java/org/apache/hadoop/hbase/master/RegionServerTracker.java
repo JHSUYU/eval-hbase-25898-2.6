@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.master;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hbase.zookeeper.ZKUtil;
 import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.KeeperException;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -217,7 +219,9 @@ public class RegionServerTracker extends ZKListener {
     if (
       path.equals(watcher.getZNodePaths().rsZNode) && !server.isAborted() && !server.isStopped()
     ) {
-      executor.execute(this::refresh);
+        try(Scope scope = PilotUtil.getDryRunTraceScope(true)){
+            executor.execute(Context.current().wrap(this::refresh));
+        }
     }
   }
 }

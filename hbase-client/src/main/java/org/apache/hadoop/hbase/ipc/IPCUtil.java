@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,8 +119,10 @@ class IPCUtil {
     RequestHeader.Builder builder = RequestHeader.newBuilder();
     builder.setCallId(call.id);
     RPCTInfo.Builder traceBuilder = RPCTInfo.newBuilder();
+    boolean isDryRun = PilotUtil.isDryRun();
     GlobalOpenTelemetry.getPropagators().getTextMapPropagator().inject(Context.current(),
       traceBuilder, (carrier, key, value) -> carrier.putHeaders(key, value));
+    traceBuilder.putHeaders("is_dry_run", Boolean.toString(isDryRun));
     builder.setTraceInfo(traceBuilder.build());
     builder.setMethodName(call.md.getName());
     builder.setRequestParam(call.param != null);

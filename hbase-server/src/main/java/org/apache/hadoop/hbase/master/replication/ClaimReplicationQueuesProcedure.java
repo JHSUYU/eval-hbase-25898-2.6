@@ -32,6 +32,7 @@ import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationQueueStorage;
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,9 +97,10 @@ public class ClaimReplicationQueuesProcedure extends Procedure<MasterProcedureEn
       Collections.shuffle(targetServers);
       ClaimReplicationQueueRemoteProcedure[] procs =
         new ClaimReplicationQueueRemoteProcedure[Math.min(queues.size(), targetServers.size())];
+      LOG.debug("ClaimReplicationQueuesProcedure, isDryRun is {}", PilotUtil.isDryRun());
       for (int i = 0; i < procs.length; i++) {
         procs[i] = new ClaimReplicationQueueRemoteProcedure(crashedServer, queues.get(i),
-          targetServers.get(i));
+          targetServers.get(i), true);
       }
       return procs;
     } catch (ReplicationException e) {

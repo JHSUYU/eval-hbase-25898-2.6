@@ -46,6 +46,7 @@ import org.apache.hadoop.hbase.procedure2.ProcedureSuspendedException;
 import org.apache.hadoop.hbase.procedure2.ProcedureYieldException;
 import org.apache.hadoop.hbase.procedure2.StateMachineProcedure;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -157,6 +158,7 @@ public class ServerCrashProcedure extends
         }
     }
     try {
+      LOG.info("SCP isDryRun " + PilotUtil.isDryRun() + ", state=" + state);
       switch (state) {
         case SERVER_CRASH_START:
           LOG.info("Start " + this);

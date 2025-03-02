@@ -50,7 +50,7 @@ class NettyRpcServerRequestDecoder extends ChannelInboundHandlerAdapter {
   public void channelActive(ChannelHandlerContext ctx) throws Exception {
     allChannels.add(ctx.channel());
     NettyRpcServer.LOG.trace("Connection {}; # active connections={}",
-      ctx.channel().remoteAddress(), (allChannels.size() - 1));
+      ctx.channel ().remoteAddress(), (allChannels.size() - 1));
     super.channelActive(ctx);
   }
 

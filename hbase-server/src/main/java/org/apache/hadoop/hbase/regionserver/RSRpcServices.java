@@ -45,6 +45,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+
+import io.opentelemetry.context.Scope;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -156,6 +158,7 @@ import org.apache.hadoop.hbase.wal.WALSplitUtil.MutationReplay;
 import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.KeeperException;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -2027,6 +2030,7 @@ public class RSRpcServices
   @QosPriority(priority = HConstants.ADMIN_QOS)
   public OpenRegionResponse openRegion(final RpcController controller,
     final OpenRegionRequest request) throws ServiceException {
+      PilotUtil.dryRunLog("openRegion");
     requestCount.increment();
     throwOnWrongStartCode(request);
 
@@ -3877,6 +3881,8 @@ public class RSRpcServices
     long initiatingMasterActiveTime =
       request.hasInitiatingMasterActiveTime() ? request.getInitiatingMasterActiveTime() : -1;
     for (RegionOpenInfo regionOpenInfo : request.getOpenInfoList()) {
+      try(Scope scope = PilotUtil.getDryRunTraceScope(regionOpenInfo.getIsDryRun())){
+      LOG.info("executeOpenRegionProcedures isDryRun is {}", regionOpenInfo.getIsDryRun());
       RegionInfo regionInfo = ProtobufUtil.toRegionInfo(regionOpenInfo.getRegion());
       TableName tableName = regionInfo.getTable();
       TableDescriptor tableDesc = tdCache.get(tableName);
@@ -3903,6 +3909,7 @@ public class RSRpcServices
       if (regionServer.submitRegionProcedure(procId)) {
         regionServer.executorService.submit(AssignRegionHandler.create(regionServer, regionInfo,
           procId, tableDesc, masterSystemTime, initiatingMasterActiveTime));
+      }
       }
     }
   }

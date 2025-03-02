@@ -1547,6 +1547,20 @@ public final class RequestConverter {
     return builder.build();
   }
 
+    public static RegionOpenInfo buildRegionOpenInfo(RegionInfo region, List<ServerName> favoredNodes,
+                                                     long openProcId, boolean isDryRun) {
+        RegionOpenInfo.Builder builder = RegionOpenInfo.newBuilder();
+        builder.setRegion(ProtobufUtil.toRegionInfo(region));
+        if (favoredNodes != null) {
+            for (ServerName server : favoredNodes) {
+                builder.addFavoredNodes(ProtobufUtil.toServerName(server));
+            }
+        }
+        builder.setOpenProcId(openProcId);
+        builder.setIsDryRun(isDryRun);
+        return builder.build();
+    }
+
   /**
    * Creates a protocol buffer NormalizeRequest
    * @return a NormalizeRequest

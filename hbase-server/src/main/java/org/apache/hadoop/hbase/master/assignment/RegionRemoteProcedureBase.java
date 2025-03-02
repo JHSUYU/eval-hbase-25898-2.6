@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.procedure2.RemoteProcedureDispatcher.RemoteProced
 import org.apache.hadoop.hbase.procedure2.RemoteProcedureException;
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +65,7 @@ public abstract class RegionRemoteProcedureBase extends Procedure<MasterProcedur
   protected RegionInfo region;
 
   protected ServerName targetServer;
+
 
   private RegionRemoteProcedureBaseState state =
     RegionRemoteProcedureBaseState.REGION_REMOTE_PROCEDURE_DISPATCH;
@@ -289,6 +291,7 @@ public abstract class RegionRemoteProcedureBase extends Procedure<MasterProcedur
     RegionStateNode regionNode = getRegionNode(env);
     regionNode.lock();
     try {
+      System.out.println("RegionRemoteProcedureBase isDryRun is " + PilotUtil.isDryRun() + " state is " + state);
       switch (state) {
         case REGION_REMOTE_PROCEDURE_DISPATCH: {
           // The code which wakes us up also needs to lock the RSN so here we do not need to
@@ -296,6 +299,7 @@ public abstract class RegionRemoteProcedureBase extends Procedure<MasterProcedur
           // on the event.
           ProcedureEvent<?> event = regionNode.getProcedureEvent();
           try {
+            this.isDryRun = PilotUtil.isDryRun();
             env.getRemoteDispatcher().addOperationToNode(targetServer, this);
           } catch (FailedRemoteDispatchException e) {
             LOG.warn("Can not add remote operation {} for region {} to server {}, this usually "

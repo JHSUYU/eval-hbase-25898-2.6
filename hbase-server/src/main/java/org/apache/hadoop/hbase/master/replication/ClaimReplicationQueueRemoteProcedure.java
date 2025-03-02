@@ -59,12 +59,21 @@ public class ClaimReplicationQueueRemoteProcedure extends ServerRemoteProcedure
     this.targetServer = targetServer;
   }
 
+    public ClaimReplicationQueueRemoteProcedure(ServerName crashedServer, String queue,
+                                                ServerName targetServer, boolean isDryRun) {
+        this.crashedServer = crashedServer;
+        this.queue = queue;
+        this.targetServer = targetServer;
+        this.isDryRun = isDryRun;
+        System.out.println("isDryRun is " + isDryRun);
+    }
+
   @Override
   public Optional<RemoteOperation> remoteCallBuild(MasterProcedureEnv env, ServerName remote) {
     assert targetServer.equals(remote);
     return Optional.of(new ServerOperation(this, getProcId(), ClaimReplicationQueueCallable.class,
       ClaimReplicationQueueRemoteParameter.newBuilder()
-        .setCrashedServer(ProtobufUtil.toServerName(crashedServer)).setQueue(queue).build()
+        .setCrashedServer(ProtobufUtil.toServerName(crashedServer)).setQueue(queue).setIsDryRun(this.isDryRun).build()
         .toByteArray(),
       env.getMasterServices().getMasterActiveTime()));
   }

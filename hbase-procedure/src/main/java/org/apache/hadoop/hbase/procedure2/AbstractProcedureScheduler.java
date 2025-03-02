@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,6 +152,9 @@ public abstract class AbstractProcedureScheduler implements ProcedureScheduler {
 
   @edu.umd.cs.findbugs.annotations.SuppressWarnings("WA_AWAIT_NOT_IN_LOOP")
   public Procedure poll(final long nanos) {
+    if(PilotUtil.isDryRun()){
+        return poll$instrumentation(nanos);
+    }
     schedLock();
     try {
       if (!running) {
@@ -184,6 +188,42 @@ public abstract class AbstractProcedureScheduler implements ProcedureScheduler {
       schedUnlock();
     }
   }
+
+
+    public Procedure poll$instrumentation(final long nanos) {
+        schedLock();
+        try {
+            if (!running) {
+                LOG.debug("the scheduler is not running");
+                return null;
+            }
+
+            if (!queueHasRunnables()) {
+                // WA_AWAIT_NOT_IN_LOOP: we are not in a loop because we want the caller
+                // to take decisions after a wake/interruption.
+                if (nanos < 0) {
+                    schedWaitCond.await();
+                } else {
+                    schedWaitCond.awaitNanos(nanos);
+                }
+                if (!queueHasRunnables()) {
+                    nullPollCalls++;
+                    return null;
+                }
+            }
+            final Procedure pollResult = dequeue();
+
+            pollCalls++;
+            nullPollCalls += (pollResult == null) ? 1 : 0;
+            return pollResult;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            nullPollCalls++;
+            return null;
+        } finally {
+            schedUnlock();
+        }
+    }
 
   // ==========================================================================
   // Utils
@@ -245,6 +285,7 @@ public abstract class AbstractProcedureScheduler implements ProcedureScheduler {
    */
   void wakeEvents(ProcedureEvent[] events) {
     schedLock();
+    System.out.println("wakeEvents, isDryRun isDryRun() " + PilotUtil.isDryRun());
     try {
       for (ProcedureEvent event : events) {
         if (event == null) {

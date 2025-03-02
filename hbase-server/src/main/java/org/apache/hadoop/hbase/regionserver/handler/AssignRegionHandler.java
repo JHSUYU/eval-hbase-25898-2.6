@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.regionserver.RegionServerServices.RegionStateTran
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.hadoop.hbase.util.ServerRegionReplicaUtil;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -99,6 +100,7 @@ public class AssignRegionHandler extends EventHandler {
 
   @Override
   public void process() throws IOException {
+    LOG.info("AssignRegionHandler isDryRun isDryRun: " + PilotUtil.isDryRun());
     MDC.put("pid", Long.toString(openProcId));
     HRegionServer rs = getServer();
     String encodedName = regionInfo.getEncodedName();

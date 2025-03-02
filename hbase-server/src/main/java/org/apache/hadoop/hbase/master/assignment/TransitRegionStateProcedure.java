@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.procedure2.ProcedureUtil;
 import org.apache.hadoop.hbase.procedure2.ProcedureYieldException;
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -208,7 +209,8 @@ public class TransitRegionStateProcedure
       throw new HBaseIOException("Failed to open region, the location is null or bogus.");
     }
     env.getAssignmentManager().regionOpening(regionNode);
-    addChildProcedure(new OpenRegionProcedure(this, getRegion(), loc));
+    LOG.info("OpenRegionProcedure isDryRun is {}", PilotUtil.isDryRun());
+    addChildProcedure(new OpenRegionProcedure(this, getRegion(), loc, PilotUtil.isDryRun()));
     setNextState(RegionStateTransitionState.REGION_STATE_TRANSITION_CONFIRM_OPENED);
   }
 
@@ -337,6 +339,7 @@ public class TransitRegionStateProcedure
     throws ProcedureSuspendedException, ProcedureYieldException, InterruptedException {
     RegionStateNode regionNode = getRegionStateNode(env);
     try {
+      LOG.info("TransitRegionStateProcedure isDryRun is {}, state is {}", PilotUtil.isDryRun(),state);
       switch (state) {
         case REGION_STATE_TRANSITION_GET_ASSIGN_CANDIDATE:
           // Need to do some sanity check for replica region, if the region does not exist at

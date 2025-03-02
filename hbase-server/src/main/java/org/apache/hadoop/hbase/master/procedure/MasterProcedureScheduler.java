@@ -45,6 +45,7 @@ import org.apache.hadoop.hbase.util.AvlUtil.AvlKeyComparator;
 import org.apache.hadoop.hbase.util.AvlUtil.AvlTree;
 import org.apache.hadoop.hbase.util.AvlUtil.AvlTreeIterator;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,9 +104,17 @@ public class MasterProcedureScheduler extends AbstractProcedureScheduler {
     (n, k) -> n.compareKey((TableName) k);
 
   private final FairQueue<ServerName> serverRunQueue = new FairQueue<>();
+
+  public FairQueue<ServerName> serverRunQueue$dryrun = new FairQueue<>();
   private final FairQueue<TableName> tableRunQueue = new FairQueue<>();
+
+  public FairQueue<TableName> tableRunQueue$dryrun = new FairQueue<>();
   private final FairQueue<String> peerRunQueue = new FairQueue<>();
+
+  public FairQueue<String> peerRunQueue$dryrun = new FairQueue<>();
   private final FairQueue<TableName> metaRunQueue = new FairQueue<>();
+
+  public FairQueue<TableName> metaRunQueue$dryrun = new FairQueue<>();
 
   private final ServerQueue[] serverBuckets = new ServerQueue[128];
   private TableQueue tableMap = null;
@@ -137,6 +146,10 @@ public class MasterProcedureScheduler extends AbstractProcedureScheduler {
 
   @Override
   protected void enqueue(final Procedure proc, final boolean addFront) {
+    if(PilotUtil.isDryRun()){
+        enqueue$instrumentation(proc, addFront);
+        return;
+    }
     if (isMetaProcedure(proc)) {
       doAdd(metaRunQueue, getMetaQueue(), proc, addFront);
     } else if (isTableProcedure(proc)) {
@@ -167,6 +180,42 @@ public class MasterProcedureScheduler extends AbstractProcedureScheduler {
     }
   }
 
+    protected void enqueue$instrumentation(final Procedure proc, final boolean addFront) {
+      LOG.info("proc is {} isDryRun true", proc);
+        if (isMetaProcedure(proc)) {
+            LOG.info("isMetaProcedure proc is {}", proc);
+            doAdd(metaRunQueue$dryrun, getMetaQueue(), proc, addFront);
+        } else if (isTableProcedure(proc)) {
+            TableProcedureInterface tableProc = (TableProcedureInterface) proc;
+            if (shouldWaitBeforeEnqueuing(tableProc)) {
+                TableProcedureWaitingQueue waitingQueue = tableProcsWaitingEnqueue.computeIfAbsent(
+                        tableProc.getTableName(), k -> new TableProcedureWaitingQueue(procedureRetriever));
+                if (!waitingQueue.procedureSubmitted(proc)) {
+                    // there is a table procedure for this table already enqueued, waiting
+                    LOG.debug("There is already a procedure running for table {}, added {} to waiting queue",
+                            tableProc.getTableName(), proc);
+                    return;
+                }
+            }
+            LOG.info("istableRunQueue proc is {}", proc);
+            doAdd(tableRunQueue$dryrun, getTableQueue(getTableName(proc)), proc, addFront);
+        } else if (isServerProcedure(proc)) {
+            ServerProcedureInterface spi = (ServerProcedureInterface) proc;
+            LOG.info("isServerProcedure proc is {}", proc);
+            doAdd(serverRunQueue$dryrun, getServerQueue(spi.getServerName(), spi), proc, addFront);
+        } else if (isPeerProcedure(proc)) {
+            LOG.info("isPeerProcedure proc is {}", proc);
+            doAdd(peerRunQueue$dryrun, getPeerQueue(getPeerId(proc)), proc, addFront);
+        } else {
+            // TODO: at the moment we only have Table and Server procedures
+            // if you are implementing a non-table/non-server procedure, you have two options: create
+            // a group for all the non-table/non-server procedures or try to find a key for your
+            // non-table/non-server procedures and implement something similar to the TableRunQueue.
+            throw new UnsupportedOperationException(
+                    "RQs for non-table/non-server procedures are not implemented yet: " + proc);
+        }
+    }
+
   private <T extends Comparable<T>> void doAdd(FairQueue<T> fairq, Queue<T> queue,
     Procedure<?> proc, boolean addFront) {
     queue.add(proc, addFront);
@@ -192,12 +241,23 @@ public class MasterProcedureScheduler extends AbstractProcedureScheduler {
 
   @Override
   protected boolean queueHasRunnables() {
+      if(PilotUtil.isDryRun()){
+            return queueHasRunnables$instrumentation();
+      }
     return metaRunQueue.hasRunnables() || tableRunQueue.hasRunnables()
       || serverRunQueue.hasRunnables() || peerRunQueue.hasRunnables();
   }
 
+    protected boolean queueHasRunnables$instrumentation() {
+        return metaRunQueue$dryrun.hasRunnables() || tableRunQueue$dryrun.hasRunnables()
+                || serverRunQueue$dryrun.hasRunnables() || peerRunQueue$dryrun.hasRunnables();
+    }
+
   @Override
   protected Procedure dequeue() {
+    if(PilotUtil.isDryRun()){
+        return dequeue$instrumentation();
+    }
     // meta procedure is always the first priority
     Procedure<?> pollResult = doPoll(metaRunQueue);
     // For now, let server handling have precedence over table handling; presumption is that it
@@ -214,6 +274,26 @@ public class MasterProcedureScheduler extends AbstractProcedureScheduler {
     }
     return pollResult;
   }
+
+    protected Procedure dequeue$instrumentation() {
+
+        // meta procedure is always the first priority
+        Procedure<?> pollResult = doPoll(metaRunQueue$dryrun);
+        // For now, let server handling have precedence over table handling; presumption is that it
+        // is more important handling crashed servers than it is running the
+        // enabling/disabling tables, etc.
+        if (pollResult == null) {
+            pollResult = doPoll(serverRunQueue$dryrun);
+        }
+        if (pollResult == null) {
+            pollResult = doPoll(peerRunQueue$dryrun);
+        }
+        if (pollResult == null) {
+            pollResult = doPoll(tableRunQueue$dryrun);
+        }
+        LOG.info("dequeue$instrumentation pollResult: {}", pollResult);
+        return pollResult;
+    }
 
   private <T extends Comparable<T>> boolean isLockReady(Procedure<?> proc, Queue<T> rq) {
     LockStatus s = rq.getLockStatus();

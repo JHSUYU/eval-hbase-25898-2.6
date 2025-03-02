@@ -110,6 +110,9 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ProcedureProtos.Procedu
  */
 @InterfaceAudience.Private
 public abstract class Procedure<TEnvironment> implements Comparable<Procedure<TEnvironment>> {
+
+  public boolean isDryRun;
+
   private static final Logger LOG = LoggerFactory.getLogger(Procedure.class);
   public static final long NO_PROC_ID = -1;
   protected static final int NO_TIMEOUT = -1;

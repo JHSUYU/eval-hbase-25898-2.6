@@ -30,6 +30,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+
+import io.opentelemetry.context.Context;
 import org.apache.hadoop.hbase.ipc.BufferCallBeforeInitHandler.BufferCallEvent;
 import org.apache.hadoop.hbase.ipc.HBaseRpcController.CancellationCallback;
 import org.apache.hadoop.hbase.security.NettyHBaseRpcConnectionHeaderHandler;
@@ -358,12 +360,12 @@ class NettyRpcConnection extends RpcConnection {
 
   @Override
   public void sendRequest(final Call call, HBaseRpcController hrc) {
-    execute(eventLoop, () -> {
+    execute(eventLoop, Context.current().wrap(() -> {
       try {
         sendRequest0(call, hrc);
       } catch (Exception e) {
         call.setException(toIOE(e));
       }
-    });
+    }));
   }
 }

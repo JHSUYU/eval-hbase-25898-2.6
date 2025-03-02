@@ -202,6 +202,7 @@ import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.KeeperException;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -335,6 +336,8 @@ public class HRegionServer extends Thread
    * will be fresh when we need it.
    */
   private final Map<String, Address[]> regionFavoredNodesMap = new ConcurrentHashMap<>();
+
+    private final Map<String, Address[]> regionFavoredNodesMap$dryrun = new ConcurrentHashMap<>();
 
   private LeaseManager leaseManager;
 
@@ -3603,7 +3606,11 @@ public class HRegionServer extends Thread
     for (int i = 0; i < favoredNodes.size(); i++) {
       addr[i] = Address.fromParts(favoredNodes.get(i).getHostName(), favoredNodes.get(i).getPort());
     }
-    regionFavoredNodesMap.put(encodedRegionName, addr);
+    if(PilotUtil.isDryRun()){
+        regionFavoredNodesMap$dryrun.put(encodedRegionName, addr);
+    }else {
+        regionFavoredNodesMap.put(encodedRegionName, addr);
+    }
   }
 
   /**

@@ -40,6 +40,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.opentelemetry.context.Scope;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.exceptions.IllegalArgumentIOException;
@@ -57,6 +59,7 @@ import org.apache.hadoop.hbase.util.IdLock;
 import org.apache.hadoop.hbase.util.NonceKey;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.pilot.PilotUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -196,6 +199,9 @@ public class ProcedureExecutor<TEnvironment> {
   private final ConcurrentHashMap<Long, Procedure<TEnvironment>> procedures =
     new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<Long, Procedure<TEnvironment>> procedures$dryrun =
+            new ConcurrentHashMap<>();
+
   /**
    * Helper map to lookup whether the procedure already issued from the same client. This map
    * contains every root procedure.
@@ -220,6 +226,8 @@ public class ProcedureExecutor<TEnvironment> {
    * ProcedureTestingUtility.testRecoveryAndDoubleExecution trickery (Should be ok).
    */
   private CopyOnWriteArrayList<WorkerThread> workerThreads;
+
+  private ShadowWorkerThread shadowWorkerThread;
 
   /**
    * Created in the {@link #init(int, boolean)} method. Terminated in {@link #join()} (FIX! Doing
@@ -643,6 +651,7 @@ public class ProcedureExecutor<TEnvironment> {
     for (int i = 0; i < corePoolSize; ++i) {
       workerThreads.add(new WorkerThread(threadGroup));
     }
+    shadowWorkerThread = new ShadowWorkerThread(threadGroup);
 
     long st, et;
 
@@ -683,6 +692,7 @@ public class ProcedureExecutor<TEnvironment> {
     for (WorkerThread worker : workerThreads) {
       worker.start();
     }
+    shadowWorkerThread.start();
 
     // Internal chores
     workerMonitorExecutor.add(new WorkerMonitor());
@@ -1139,6 +1149,9 @@ public class ProcedureExecutor<TEnvironment> {
   }
 
   private long pushProcedure(Procedure<TEnvironment> proc) {
+    if(PilotUtil.isDryRun()){
+        return pushProcedure$instrumentation(proc);
+    }
     final long currentProcId = proc.getProcId();
 
     // Update metrics on start of a procedure
@@ -1156,6 +1169,26 @@ public class ProcedureExecutor<TEnvironment> {
     scheduler.addBack(proc);
     return proc.getProcId();
   }
+
+    private long pushProcedure$instrumentation(Procedure<TEnvironment> proc) {
+        final long currentProcId = proc.getProcId();
+
+        // Update metrics on start of a procedure
+        proc.updateMetricsOnSubmit(getEnvironment());
+
+        // Create the rollback stack for the procedure
+        RootProcedureState<TEnvironment> stack = new RootProcedureState<>();
+        stack.setRollbackSupported(proc.isRollbackSupported());
+        rollbackStack.put(currentProcId, stack);
+
+        // Submit the new subprocedures
+        assert !procedures.containsKey(currentProcId);
+        procedures.put(currentProcId, proc);
+        sendProcedureAddedNotification(currentProcId);
+        LOG.info("scheduler class name is {}", scheduler.getClass().getName());
+        scheduler.addBack(proc);
+        return proc.getProcId();
+    }
 
   /**
    * Send an abort notification the specified procedure. Depending on the procedure implementation
@@ -1913,7 +1946,7 @@ public class ProcedureExecutor<TEnvironment> {
     throw new RuntimeException(msg);
   }
 
-  private Procedure<TEnvironment>[] initializeChildren(RootProcedureState<TEnvironment> procStack,
+  private Procedure<TEnvironment>[]initializeChildren(RootProcedureState<TEnvironment> procStack,
     Procedure<TEnvironment> procedure, Procedure<TEnvironment>[] subprocs) {
     assert subprocs != null : "expected subprocedures";
     final long rootProcId = getRootProcedureId(procedure);
@@ -1962,6 +1995,7 @@ public class ProcedureExecutor<TEnvironment> {
   private void countDownChildren(RootProcedureState<TEnvironment> procStack,
     Procedure<TEnvironment> procedure) {
     Procedure<TEnvironment> parent = procedures.get(procedure.getParentProcId());
+    LOG.info("parent is " + parent + ", child is " + procedure);
     if (parent == null) {
       assert procStack.isRollingback();
       return;
@@ -1973,7 +2007,7 @@ public class ProcedureExecutor<TEnvironment> {
       // children have completed, move parent to front of the queue.
       store.update(parent);
       scheduler.addFront(parent);
-      LOG.info("Finished subprocedure pid={}, resume processing ppid={}", procedure.getProcId(),
+      LOG.info("CountDownChildern isDryRun is {} Finished subprocedure pid={}, resume processing ppid={}", PilotUtil.isDryRun(), procedure.getProcId(),
         parent.getProcId());
       return;
     }
@@ -2073,6 +2107,95 @@ public class ProcedureExecutor<TEnvironment> {
   // ==========================================================================
   // Worker Thread
   // ==========================================================================
+
+    private class ShadowWorkerThread extends StoppableThread {
+        private final AtomicLong executionStartTime = new AtomicLong(Long.MAX_VALUE);
+        private volatile Procedure<TEnvironment> activeProcedure;
+
+        public ShadowWorkerThread(ThreadGroup group) {
+            this(group, "ShadowPEWorker-");
+        }
+
+        protected ShadowWorkerThread(ThreadGroup group, String prefix) {
+            super(group, prefix + workerId.incrementAndGet());
+            setDaemon(true);
+        }
+
+        @Override
+        public void sendStopSignal() {
+            scheduler.signalAll();
+        }
+
+        /**
+         * Encapsulates execution of the current {@link #activeProcedure} for easy tracing.
+         */
+        private long runProcedure() throws IOException {
+            final Procedure<TEnvironment> proc = this.activeProcedure;
+            int activeCount = activeExecutorCount.incrementAndGet();
+            int runningCount = store.setRunningProcedureCount(activeCount);
+            LOG.trace("Execute pid={} runningCount={}, activeCount={}", proc.getProcId(), runningCount,
+                    activeCount);
+            executionStartTime.set(EnvironmentEdgeManager.currentTime());
+            IdLock.Entry lockEntry = procExecutionLock.getLockEntry(proc.getProcId());
+            try {
+                executeProcedure(proc);
+            } catch (AssertionError e) {
+                LOG.info("ASSERT pid=" + proc.getProcId(), e);
+                throw e;
+            } finally {
+                procExecutionLock.releaseLockEntry(lockEntry);
+                activeCount = activeExecutorCount.decrementAndGet();
+                runningCount = store.setRunningProcedureCount(activeCount);
+                LOG.trace("Halt pid={} runningCount={}, activeCount={}", proc.getProcId(), runningCount,
+                        activeCount);
+                this.activeProcedure = null;
+                executionStartTime.set(Long.MAX_VALUE);
+            }
+            return EnvironmentEdgeManager.currentTime();
+        }
+
+        @Override
+        public void run() {
+            try (Scope scope = PilotUtil.getDryRunTraceScope(true)) {
+                long lastUpdate = EnvironmentEdgeManager.currentTime();
+                try {
+                    while (isRunning() && keepAlive(lastUpdate)) {
+                        LOG.info("shadow thread scheduler.poll");
+                        @SuppressWarnings("unchecked")
+                        //Procedure<TEnvironment> proc = scheduler.poll(keepAliveTime, TimeUnit.MILLISECONDS);
+                        Procedure<TEnvironment> proc = scheduler.poll(500, TimeUnit.MILLISECONDS);
+                        if (proc == null) {
+                            continue;
+                        }
+                        this.activeProcedure = proc;
+                        lastUpdate = TraceUtil.trace(this::runProcedure, new ProcedureSpanBuilder(proc));
+                    }
+                } catch (Throwable t) {
+                    LOG.warn("Worker terminating UNNATURALLY {}", this.activeProcedure, t);
+                } finally {
+                    LOG.trace("Worker terminated.");
+                }
+                workerThreads.remove(this);
+            }
+        }
+
+        @Override
+        public String toString() {
+            Procedure<?> p = this.activeProcedure;
+            return getName() + "(pid=" + (p == null ? Procedure.NO_PROC_ID : p.getProcId() + ")");
+        }
+
+        /** Returns the time since the current procedure is running */
+        public long getCurrentRunTime() {
+            return EnvironmentEdgeManager.currentTime() - executionStartTime.get();
+        }
+
+        // core worker never timeout
+        protected boolean keepAlive(long lastUpdate) {
+            return true;
+        }
+    }
+
   private class WorkerThread extends StoppableThread {
     private final AtomicLong executionStartTime = new AtomicLong(Long.MAX_VALUE);
     private volatile Procedure<TEnvironment> activeProcedure;

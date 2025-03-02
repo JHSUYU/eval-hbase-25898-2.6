@@ -30,6 +30,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProcedureProtos.C
 @InterfaceAudience.Private
 public class ClaimReplicationQueueCallable extends BaseRSProcedureCallable {
 
+  public boolean isDryRun;
   private ServerName crashedServer;
 
   private String queue;
@@ -51,5 +52,10 @@ public class ClaimReplicationQueueCallable extends BaseRSProcedureCallable {
       ClaimReplicationQueueRemoteParameter.parseFrom(parameter);
     crashedServer = ProtobufUtil.toServerName(param.getCrashedServer());
     queue = param.getQueue();
+    isDryRun = param.getIsDryRun();
+    System.out.println("ClaimReplicationQueueCallable: initParameter: crashedServer=" + crashedServer
+      + ", queue=" + queue + ", isDryRun=" + isDryRun);
+    //print stack trace
+    new Exception("ClaimReplicationQueueCallable: initParameter").printStackTrace();
   }
 }
